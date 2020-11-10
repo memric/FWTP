@@ -33,7 +33,7 @@
 #endif
 
 #if defined(ESP_PLATFORM) || _RTOS_
-#define FWTP_THREAD_STACK	(1024)
+#define FWTP_THREAD_STACK	(2*1024)
 #define FWTP_THREAD_PRIO	(tskIDLE_PRIORITY + 2)
 #endif
 
@@ -116,6 +116,7 @@ void FWTPServerThread(void * argument)
 		{
 			while (1)
 			{
+				addrLen = sizeof(struct sockaddr);
 				recv_len = recvfrom(sock, FWTP_RX_Buffer, sizeof(FWTP_RX_Buffer), 0, ( struct sockaddr* ) &source_addr, &addrLen);
 
 				/*If data is present*/
