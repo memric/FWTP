@@ -42,13 +42,6 @@
 #define PTRACE_WRN			printf
 #endif
 
-//#ifndef ARR_2_U16
-//#define ARR_2_U16(a)  		(uint16_t) (*(a) << 8) | *( (a)+1 )
-//#endif
-//#ifndef U16_2_ARR
-//#define U16_2_ARR(b,a)  	*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
-//#endif
-
 #if defined(__linux__) || (__APPLE__)
 static pthread_t hFWTP = NULL;
 #elif _WIN32
@@ -65,7 +58,6 @@ void* FWTPServerThread(void * argument);
 void FWTPServerThread(void * argument);
 #endif
 uint32_t FWTPPacketParser(uint8_t *p, uint16_t len);
-uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
 void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
 
 /**
@@ -221,6 +213,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
  * @param p
  * @return
  */
+__attribute__((weak))
 uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p)
 {
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;

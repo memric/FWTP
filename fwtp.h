@@ -24,6 +24,7 @@ extern "C" {
 #define FWTP_MAINSYSTEM_FILE_ID		0x10
 #define FWTP_SUBSYSTEM1_FILE_ID		0x21
 #define FWTP_SUBSYSTEM2_FILE_ID		0x22
+#define FWTP_SUBSYSTEM3_FILE_ID		0x23
 
 #define FWTP_CMD_NOPE				0 /*Nope*/
 #define FWTP_CMD_ACK				1 /*Acknowledge*/
@@ -78,6 +79,7 @@ struct fwtp_hdr {
 
 uint32_t FWTP_Init(void);
 uint16_t FWTPCRC(uint8_t * pdata, uint16_t len);
+uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
 
 #ifdef __cplusplus
 }
