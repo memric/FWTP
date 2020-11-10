@@ -58,7 +58,7 @@ void MainWindow::on_pbStart_clicked()
         if (udp_socket == NULL)
         {
             udp_socket = new QUdpSocket(this);
-            if (udp_socket->bind(QHostAddress::LocalHost, FWTP_SERVER_PORT+1) == true)
+            if (udp_socket->bind(QHostAddress::LocalHost, FWTP_SERVER_PORT) == true)
             {
                 connect(udp_socket, SIGNAL(readyRead()), this, SLOT(ReadUDP()));
             }
