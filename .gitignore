@@ -2,3 +2,4 @@ test/.settings/language.settings.xml
 test/Debug
 client/build-FWTP_Client-*
 test/Release
+test/build
