@@ -64,9 +64,9 @@ void* FWTPServerThread(void * argument);
 #else
 void FWTPServerThread(void * argument);
 #endif
-void FWTPPacketParser(uint8_t *p, uint32_t len, int sock, struct sockaddr* src);
+uint32_t FWTPPacketParser(uint8_t *p, uint16_t len);
 uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
-void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr* src);
+void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
 
 /**
  * @brief FWTP Initialization
@@ -98,7 +98,7 @@ void FWTPServerThread(void * argument)
 #endif
 {
 	int32_t err, recv_len;
-	struct sockaddr source_addr;
+	struct sockaddr_in source_addr;
 	socklen_t addrLen;
 
 	(void) argument;
@@ -129,7 +129,10 @@ void FWTPServerThread(void * argument)
 				/*If data is present*/
 				if (recv_len > 0)
 				{
-					FWTPPacketParser(FWTP_RX_Buffer, recv_len, sock, &source_addr);
+					if (FWTPPacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
+					{
+                        FWTPAckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
+					}
 				}
 			}
 
@@ -157,9 +160,12 @@ void FWTPServerThread(void * argument)
  * @param p
  * @param len
  */
-void FWTPPacketParser(uint8_t *p, uint32_t len, int sock, struct sockaddr* src)
+uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 {
-	if (len < sizeof(struct fwtp_hdr) + 2) return;
+	if (len < sizeof(struct fwtp_hdr) + 2)
+	{
+		return FWTP_ERR_SIZE;
+	}
 
 	/*Calculate CRC*/
     uint16_t block_crc16 = *((uint16_t *) &p[len-2]);
@@ -167,7 +173,7 @@ void FWTPPacketParser(uint8_t *p, uint32_t len, int sock, struct sockaddr* src)
 	if (block_crc16 != calc_crc16)
 	{
 		PTRACE_ERR("Invalid CRC: expected %d, obtained %d\r\n", calc_crc16, block_crc16);
-		return;
+		return FWTP_ERR_CRC;
 	}
 
 	struct fwtp_hdr* hdr = (struct fwtp_hdr*) p;
@@ -175,7 +181,7 @@ void FWTPPacketParser(uint8_t *p, uint32_t len, int sock, struct sockaddr* src)
 	if (FWTP_HDR_GET_VER(hdr) != FWTP_VER)
 	{
 		PTRACE_ERR("FWTP unsupported version: supported %d, obtained %d\r\n", FWTP_VER, FWTP_HDR_GET_VER(hdr));
-		return;
+		return FWTP_ERR_VER;
 	}
 
 	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_WR)
@@ -184,21 +190,26 @@ void FWTPPacketParser(uint8_t *p, uint32_t len, int sock, struct sockaddr* src)
 		if (hdr->block_size != (len - 2 - sizeof(struct fwtp_hdr)))
 		{
 			PTRACE_ERR("Incorrect block size\r\n");
-			return;
+			return FWTP_ERR_SIZE;
 		}
 
 		/*Write data block*/
 		if (hdr->block_size == FWTPBlockWrite(hdr->file_id, hdr->file_size, hdr->block_offset,
 				hdr->block_size, &p[sizeof(struct fwtp_hdr)]))
 		{
-			/*Send acknowledge*/
-			FWTPAckSend(hdr, sock, src);
+			/*OK*/
 		}
 		else
 		{
 			PTRACE_ERR("Block writing error\r\n");
 		}
 	}
+	else
+	{
+		return FWTP_ERR_CMD;
+	}
+
+	return FWTP_ERR_OK;
 }
 
 /**
@@ -223,12 +234,23 @@ uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, ui
 	return len;
 }
 
-void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr* src)
+void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 {
+	struct sockaddr_in addr;
+
+	/* set up address to connect to */
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(FWTP_SERVER_PORT+1);
+	addr.sin_addr.s_addr = src->sin_addr.s_addr;
+
 	struct fwtp_hdr* tx_hdr = (struct fwtp_hdr*) FWTP_TX_Buffer;
 
 	memcpy(tx_hdr, hdr, sizeof(struct fwtp_hdr));
+	tx_hdr->hdr = 0;
+	FWTP_HDR_SET_VER(tx_hdr, FWTP_VER);
 	FWTP_HDR_SET_CMD(tx_hdr, FWTP_CMD_ACK);
+	FWTP_HDR_SET_ATTR(tx_hdr, 0);
 
 	/*Calculate CRC*/
 	uint16_t *pblock_crc16 = (uint16_t *) &FWTP_TX_Buffer[sizeof(struct fwtp_hdr)];
@@ -236,7 +258,7 @@ void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr* src)
 
 	/* Send to client*/
 	if (sendto(sock, FWTP_TX_Buffer, sizeof(struct fwtp_hdr) + 2, 0,
-			src, sizeof( struct sockaddr )) > 0)
+			( struct sockaddr* ) &addr, sizeof(struct sockaddr_in) ) > 0)
 	{
 		/*OK*/
 	}

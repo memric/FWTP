@@ -17,7 +17,7 @@ extern "C" {
 #define FWTP_VER					1 /*Supported version*/
 
 #define FWTP_SERVER_PORT			8017
-#define FWTP_RX_MAX_DATA			512
+#define FWTP_RX_MAX_DATA			(512 + 16)
 #define FWTP_TX_MAX_DATA			64
 
 #define FWTP_BOOTLOADER_FILE_ID		0x01
@@ -40,6 +40,12 @@ extern "C" {
 #define FWTP_HDR_SET_ATTR(a, c)		((a)->hdr |= (c))
 
 #define FWTP_HDR_SIZE               sizeof(struct fwtp_hdr)
+
+#define FWTP_ERR_OK					0
+#define FWTP_ERR_SIZE				1
+#define FWTP_ERR_CRC				2
+#define FWTP_ERR_VER				3
+#define FWTP_ERR_CMD				4
 
 /**
  * Packet Structure

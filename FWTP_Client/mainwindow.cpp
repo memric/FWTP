@@ -5,7 +5,7 @@
 #include "../fwtp.h"
 
 #define FWTP_SERVER_PORT	8017
-#define BLOCK_SIZE          256
+#define BLOCK_SIZE          512
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -117,7 +117,35 @@ void MainWindow::ReadUDP()
         udp_socket->readDatagram(datagram.data(), datagram.size(),
                                 &sender, &senderPort);
 
-        /*TODO*/
+        uint8_t *p = (uint8_t *) datagram.data();
+
+        uint16_t block_crc16 = *((uint16_t *) &p[datagram.size()-2]);
+        uint16_t calc_crc16 = FWTPCRC(p, datagram.size()-2);
+        if (block_crc16 != calc_crc16)
+        {
+            ui->peStatus->appendPlainText("Invalid CRC");
+        }
+
+        struct fwtp_hdr* hdr = (struct fwtp_hdr*) p;
+
+        if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_ACK)
+        {
+            sending_timer.stop();
+
+            ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
+
+            block_id++;
+            file_offset += BLOCK_SIZE;
+
+            if (block_id < blocks_num)
+            {
+                TimeoutElapsed();
+            }
+            else
+            {
+                ui->pbStart->setText("Start");
+            }
+        }
     }
 }
 
@@ -145,7 +173,7 @@ uint32_t MainWindow::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t off
     packet.append(data);
 
     /*Add CRC*/
-    uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.length());
+    uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.size());
     packet.append((const char *) &crc, 2);
 
     /*Sending*/
