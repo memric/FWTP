@@ -16,22 +16,24 @@
 #include <unistd.h>
 #include <time.h>
 #include <pthread.h>
-#elif _WIN32
-
+#elif defined(ESP_PLATFORM)
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "lwip/opt.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
 #elif _RTOS_ //This means LwIP usage
 #include "FreeRTOS.h"
 #include "task.h"
 #include "lwip/opt.h"
-#if LWIP_SOCKET
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
-#endif
 #else
 #error "OS is not supported!"
 #endif
 
-#if _RTOS_
-#define FWTP_THREAD_STACK	(128*4)
+#if defined(ESP_PLATFORM) || _RTOS_
+#define FWTP_THREAD_STACK	(1024)
 #define FWTP_THREAD_PRIO	(tskIDLE_PRIORITY + 2)
 #endif
 
@@ -44,8 +46,7 @@
 
 #if defined(__linux__) || (__APPLE__)
 static pthread_t hFWTP = NULL;
-#elif _WIN32
-#elif _RTOS_
+#elif defined(ESP_PLATFORM) || _RTOS_
 static TaskHandle_t hFWTP = NULL;
 #endif
 
@@ -71,8 +72,7 @@ uint32_t FWTP_Init(void)
 #if defined(__linux__) || (__APPLE__)
 	pthread_create(&hFWTP, NULL, FWTPServerThread, NULL);
 	if (pthread_join(hFWTP, NULL)) return 1;
-#elif _WIN32
-#elif _RTOS_
+#elif defined(ESP_PLATFORM) || _RTOS_
 	xTaskCreate(FWTPServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP);
 #endif
 
@@ -142,8 +142,8 @@ void FWTPServerThread(void * argument)
 
 #if defined(__linux__) || (__APPLE__)
 	return NULL;
-#elif _RTOS_
-	osThreadTerminate(NULL);
+#elif defined(ESP_PLATFORM) || _RTOS_
+	vTaskDelete(NULL);
 #endif
 }
 
@@ -234,7 +234,7 @@ void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 	/* set up address to connect to */
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(FWTP_SERVER_PORT+1);
+	addr.sin_port = htons(FWTP_SERVER_PORT);
 	addr.sin_addr.s_addr = src->sin_addr.s_addr;
 
 	struct fwtp_hdr* tx_hdr = (struct fwtp_hdr*) FWTP_TX_Buffer;
