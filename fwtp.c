@@ -177,6 +177,11 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 		return FWTP_ERR_VER;
 	}
 
+	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_START)
+	{
+		return FWTPFileStart(fhdr->file_id, hdr->file_size);
+	}
+
 	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_WR)
 	{
 		/*Check block size*/
@@ -226,6 +231,22 @@ uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, ui
     (void) p;
 
 	return len;
+}
+
+/**
+ * @brief File start command callback
+ * @param file_id
+ * @param ttl_fsize
+ * @return
+ */
+__attribute__((weak))
+uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
+{
+	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
+
+	PTRACE("File start command received; File ID: %u; Size: %u\r\n", file_id, ttl_fsize);
+
+	return FWTP_ERR_OK;
 }
 
 void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)

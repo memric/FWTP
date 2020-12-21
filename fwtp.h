@@ -30,6 +30,7 @@ extern "C" {
 #define FWTP_CMD_ACK				1 /*Acknowledge*/
 #define FWTP_CMD_RD					2 /*Read command (reserved)*/
 #define FWTP_CMD_WR					3 /*Write command*/
+#define FWTP_CMD_START				4 /*Transaction start*/
 #define FWTP_CMD_ERR				7 /*Error*/
 #define FWTP_CMD_CRC                8 /*CRC sending*/
 
@@ -80,6 +81,7 @@ struct fwtp_hdr {
 uint32_t FWTP_Init(void);
 uint16_t FWTPCRC(uint8_t * pdata, uint16_t len);
 uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
+uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize);
 
 #ifdef __cplusplus
 }
