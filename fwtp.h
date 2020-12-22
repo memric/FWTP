@@ -31,7 +31,7 @@ extern "C" {
 #define FWTP_CMD_RD					2 /*Read command (reserved)*/
 #define FWTP_CMD_WR					3 /*Write command*/
 #define FWTP_CMD_START				4 /*Transaction start*/
-#define FWTP_CMD_STOP				4 /*Transaction stop*/
+#define FWTP_CMD_STOP				5 /*Transaction stop*/
 #define FWTP_CMD_ERR				7 /*Error*/
 #define FWTP_CMD_CRC                8 /*CRC sending*/
 

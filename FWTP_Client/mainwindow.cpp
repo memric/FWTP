@@ -117,7 +117,7 @@ void MainWindow::TimeoutElapsed()
         ui->peStatus->appendPlainText("Stop sending");
         StopWrite(FWTP_MAINSYSTEM_FILE_ID);
     }
-    sending_timer.start(1000);
+    sending_timer.start(5000);
 }
 
 void MainWindow::ReadUDP()
@@ -165,7 +165,7 @@ void MainWindow::ReadUDP()
 
                 TimeoutElapsed();
             }
-            else if (state == FILE_SENDING)
+            else if (state == FILE_STOP)
             {
                 state = FILE_FINISHED;
                 ui->pbStart->setText("Start");
