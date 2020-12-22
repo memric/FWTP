@@ -179,7 +179,12 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 
 	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_START)
 	{
-		return FWTPFileStart(fhdr->file_id, hdr->file_size);
+		return FWTPFileStart(hdr->file_id, hdr->file_size);
+	}
+
+	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_STOP)
+	{
+		return FWTPFileStop(hdr->file_id);
 	}
 
 	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_WR)
@@ -245,6 +250,16 @@ uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
 
 	PTRACE("File start command received; File ID: %u; Size: %u\r\n", file_id, ttl_fsize);
+
+	return FWTP_ERR_OK;
+}
+
+__attribute__((weak))
+uint32_t FWTPFileStop(uint8_t file_id)
+{
+	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
+
+	PTRACE("File stop command received; File ID: %u\r\n", file_id);
 
 	return FWTP_ERR_OK;
 }

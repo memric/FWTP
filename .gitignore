@@ -3,3 +3,4 @@ test/Debug
 client/build-FWTP_Client-*
 test/Release
 test/build
+build*

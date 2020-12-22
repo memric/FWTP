@@ -87,6 +87,7 @@ void MainWindow::on_pbStart_clicked()
         }
 
         /*Start to send data*/
+        state = FILE_START;
         block_id = 0;
         file_offset = 0;
         TimeoutElapsed();
@@ -101,8 +102,21 @@ void MainWindow::on_pbStart_clicked()
 
 void MainWindow::TimeoutElapsed()
 {
-    ui->peStatus->appendPlainText(tr("Block sending: %1").arg(block_id));
-    BlockWrite(FWTP_MAINSYSTEM_FILE_ID, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
+    if (state == FILE_START)
+    {
+        ui->peStatus->appendPlainText("Start sending");
+        StartWrite(FWTP_MAINSYSTEM_FILE_ID, (uint32_t) fw_data->size());
+    }
+    else if (state == FILE_SENDING)
+    {
+        ui->peStatus->appendPlainText(tr("Block sending: %1").arg(block_id));
+        BlockWrite(FWTP_MAINSYSTEM_FILE_ID, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
+    }
+    else if (state == FILE_STOP)
+    {
+        ui->peStatus->appendPlainText("Stop sending");
+        StopWrite(FWTP_MAINSYSTEM_FILE_ID);
+    }
     sending_timer.start(1000);
 }
 
@@ -132,17 +146,28 @@ void MainWindow::ReadUDP()
         {
             sending_timer.stop();
 
-            ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
-
-            block_id++;
-            file_offset += BLOCK_SIZE;
-
-            if (block_id < blocks_num)
+            if (state == FILE_START)
             {
+                state = FILE_SENDING;
                 TimeoutElapsed();
             }
-            else
+            else if (state == FILE_SENDING)
             {
+                ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
+
+                block_id++;
+                file_offset += BLOCK_SIZE;
+
+                if (block_id == blocks_num)
+                {
+                    state = FILE_STOP;
+                }
+
+                TimeoutElapsed();
+            }
+            else if (state == FILE_SENDING)
+            {
+                state = FILE_FINISHED;
                 ui->pbStart->setText("Start");
             }
         }
@@ -171,6 +196,58 @@ uint32_t MainWindow::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t off
 
     /*Add data*/
     packet.append(data);
+
+    /*Add CRC*/
+    uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.size());
+    packet.append((const char *) &crc, 2);
+
+    /*Sending*/
+    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT);
+}
+
+uint32_t MainWindow::StartWrite(uint8_t file_id, uint32_t ttl_size)
+{
+    if (ttl_size > UINT32_MAX) {
+        return 0;
+    }
+
+    QByteArray packet;
+    packet.resize(FWTP_HDR_SIZE);
+    struct fwtp_hdr* tx_hdr = (struct fwtp_hdr*) packet.data();
+
+    /*Fill header*/
+    tx_hdr->hdr = 0;
+    FWTP_HDR_SET_VER(tx_hdr, FWTP_VER);
+    FWTP_HDR_SET_CMD(tx_hdr, FWTP_CMD_START);
+    tx_hdr->file_id = file_id;
+    tx_hdr->file_size = ttl_size;
+    tx_hdr->block_size = 0;
+    tx_hdr->packet_id = 0;
+
+
+    /*Add CRC*/
+    uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.size());
+    packet.append((const char *) &crc, 2);
+
+    /*Sending*/
+    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT);
+}
+
+uint32_t MainWindow::StopWrite(uint8_t file_id)
+{
+    QByteArray packet;
+    packet.resize(FWTP_HDR_SIZE);
+    struct fwtp_hdr* tx_hdr = (struct fwtp_hdr*) packet.data();
+
+    /*Fill header*/
+    tx_hdr->hdr = 0;
+    FWTP_HDR_SET_VER(tx_hdr, FWTP_VER);
+    FWTP_HDR_SET_CMD(tx_hdr, FWTP_CMD_STOP);
+    tx_hdr->file_id = file_id;
+    tx_hdr->file_size = 0;
+    tx_hdr->block_size = 0;
+    tx_hdr->packet_id = 0;
+
 
     /*Add CRC*/
     uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.size());
