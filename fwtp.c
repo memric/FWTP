@@ -22,6 +22,7 @@
 #include "lwip/opt.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
+#include "esp_log.h"
 #elif _RTOS_ //This means LwIP usage
 #include "FreeRTOS.h"
 #include "task.h"
@@ -33,8 +34,14 @@
 #endif
 
 #if defined(ESP_PLATFORM) || _RTOS_
-#define FWTP_THREAD_STACK	(2*1024)
+#define FWTP_THREAD_STACK	(4*1024)
 #define FWTP_THREAD_PRIO	(tskIDLE_PRIORITY + 2)
+#endif
+
+#if defined(ESP_PLATFORM)
+#define PTRACE(m...)		ESP_LOGI("FWTP", m)
+#define PTRACE_ERR(m...)	ESP_LOGE("FWTP", m)
+#define PTRACE_WRN(m...)	ESP_LOGW("FWTP", m)
 #endif
 
 #ifndef PTRACE
@@ -95,7 +102,7 @@ void FWTPServerThread(void * argument)
 
 	(void) argument;
 
-	PTRACE("Creating new FWTP server\r\n");
+	PTRACE("Creating a new FWTP server\r\n");
 
 	/*Create new socket*/
 	int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -125,6 +132,10 @@ void FWTPServerThread(void * argument)
 					if (FWTPPacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
 					{
                         FWTPAckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
+					}
+					else
+					{
+						PTRACE_ERR("FWTP error\r\n");
 					}
 				}
 			}
@@ -254,6 +265,11 @@ uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
 	return FWTP_ERR_OK;
 }
 
+/**
+ * @brief File stop command callback
+ * @param file_id
+ * @return
+ */
 __attribute__((weak))
 uint32_t FWTPFileStop(uint8_t file_id)
 {
