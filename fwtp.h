@@ -2,7 +2,7 @@
  * fwtp.h
  *
  *  Created on: Oct 8, 2020
- *      Author: Valeriy Chudnikov
+ *  Author: Valeriy Chudnikov
  */
 
 #ifndef PLATFORM_SUPPORT_FWTP_H_
@@ -33,7 +33,7 @@ extern "C" {
 #define FWTP_CMD_START				4 /*Transaction start*/
 #define FWTP_CMD_STOP				5 /*Transaction stop*/
 #define FWTP_CMD_ERR				7 /*Error*/
-#define FWTP_CMD_CRC                8 /*CRC sending*/
+#define FWTP_CMD_CRC				8 /*CRC sending*/
 
 #define FWTP_HDR_GET_VER(a)			((a)->hdr >> 6) /*Get version from header*/
 #define FWTP_HDR_GET_CMD(a)			(((a)->hdr >> 3) & 0x7) /*Get command from header*/
@@ -42,13 +42,13 @@ extern "C" {
 #define FWTP_HDR_SET_CMD(a, c)		((a)->hdr |= (c) << 3)
 #define FWTP_HDR_SET_ATTR(a, c)		((a)->hdr |= (c))
 
-#define FWTP_HDR_SIZE               sizeof(struct fwtp_hdr)
+#define FWTP_HDR_SIZE				sizeof(struct fwtp_hdr)
 
-#define FWTP_ERR_OK					0
-#define FWTP_ERR_SIZE				1
-#define FWTP_ERR_CRC				2
-#define FWTP_ERR_VER				3
-#define FWTP_ERR_CMD				4
+#define FWTP_ERR_OK					0x00
+#define FWTP_ERR_SIZE				0x01
+#define FWTP_ERR_CRC				0x02
+#define FWTP_ERR_VER				0x03
+#define FWTP_ERR_CMD				0x04
 #define FWTP_ERR_FS					0x10
 
 /**
@@ -77,7 +77,7 @@ struct fwtp_hdr {
 	uint16_t packet_id;
 	uint32_t file_size;
 	uint32_t block_offset;
-    uint16_t block_size;
+	uint16_t block_size;
 } __attribute__ ((__packed__));
 
 uint32_t FWTP_Init(void);

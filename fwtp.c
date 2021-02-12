@@ -4,7 +4,7 @@
  * FirmWare Transfer Protocol
  *
  *  Created on: Oct 8, 2020
- *      Author: Valeriy Chudnikov
+ *  Author: Valeriy Chudnikov
  */
 
 #include "fwtp.h"
@@ -131,7 +131,7 @@ void FWTPServerThread(void * argument)
 				{
 					if (FWTPPacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
 					{
-                        FWTPAckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
+						FWTPAckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
 					}
 					else
 					{
@@ -172,7 +172,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 	}
 
 	/*Calculate CRC*/
-    uint16_t block_crc16 = *((uint16_t *) &p[len-2]);
+	uint16_t block_crc16 = *((uint16_t *) &p[len-2]);
 	uint16_t calc_crc16 = FWTPCRC(p, len-2);
 	if (block_crc16 != calc_crc16)
 	{
@@ -243,8 +243,8 @@ uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, ui
 	/* TODO write routine*/
 	PTRACE("Block received; File ID: %u; Offset: %u; Size: %u;\r\n", file_id, offset, len);
 
-    (void) ttl_fsize;
-    (void) p;
+	(void) ttl_fsize;
+	(void) p;
 
 	return len;
 }
