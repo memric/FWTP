@@ -49,7 +49,10 @@ extern "C" {
 #define FWTP_ERR_CRC				0x02
 #define FWTP_ERR_VER				0x03
 #define FWTP_ERR_CMD				0x04
+#define FWTP_ERR_FILE_ID			0x05
 #define FWTP_ERR_FS					0x10
+#define FWTP_ERR_SUBSYSTEM			0x20
+
 
 /**
  * Packet Structure
