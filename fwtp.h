@@ -32,8 +32,8 @@ extern "C" {
 #define FWTP_CMD_WR					3 /*Write command*/
 #define FWTP_CMD_START				4 /*Transaction start*/
 #define FWTP_CMD_STOP				5 /*Transaction stop*/
+#define FWTP_CMD_CRC				6 /*CRC sending*/
 #define FWTP_CMD_ERR				7 /*Error*/
-#define FWTP_CMD_CRC				8 /*CRC sending*/
 
 #define FWTP_HDR_GET_VER(a)			((a)->hdr >> 6) /*Get version from header*/
 #define FWTP_HDR_GET_CMD(a)			(((a)->hdr >> 3) & 0x7) /*Get command from header*/
@@ -49,7 +49,10 @@ extern "C" {
 #define FWTP_ERR_CRC				0x02
 #define FWTP_ERR_VER				0x03
 #define FWTP_ERR_CMD				0x04
+#define FWTP_ERR_FILE_ID			0x05
 #define FWTP_ERR_FS					0x10
+#define FWTP_ERR_SUBSYSTEM			0x20
+
 
 /**
  * Packet Structure
