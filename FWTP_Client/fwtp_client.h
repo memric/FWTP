@@ -1,27 +1,20 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef FWTPCLIENT_H
+#define FWTPCLIENT_H
 
-#include <QMainWindow>
 #include <QUdpSocket>
 #include <QTimer>
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
-QT_END_NAMESPACE
-
-class MainWindow : public QMainWindow
+class FWTPClient : public QObject
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    FWTPClient(QObject *parent = nullptr);
+    ~FWTPClient();
 
     typedef enum {FILE_START = 0, FILE_SENDING, FILE_STOP, FILE_FINISHED} file_state_t;
 
 private slots:
-    void on_pbFile_clicked();
-
     void on_pbStart_clicked();
 
     void ReadUDP();
@@ -31,10 +24,9 @@ private slots:
     uint32_t StopWrite(uint8_t file_id);
     void TimeoutElapsed();
 
-    void on_pbStop_clicked();
+//    void on_pbStop_clicked();
 
 private:
-    Ui::MainWindow *ui;
     QUdpSocket *udp_socket;
     QByteArray *fw_data;
     uint32_t blocks_num;
@@ -43,5 +35,7 @@ private:
     QTimer sending_timer;
     file_state_t state;
     uint8_t file_id;
+    QString server_addr_str;
+    QString file_name;
 };
-#endif // MAINWINDOW_H
+#endif // FWTPClient_H

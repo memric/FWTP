@@ -1,59 +1,49 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include <QFileDialog>
+#include "fwtp_client.h"
 #include <QtNetwork/QHostAddress>
 #include "../fwtp.h"
+#include <QDebug>
+#include <QFile>
 
 #define FWTP_SERVER_PORT	8017
 #define BLOCK_SIZE          512
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+FWTPClient::FWTPClient(QObject *parent)
+    : QObject(parent)
 {
-    ui->setupUi(this);
     udp_socket = NULL;
     fw_data = NULL;
     connect(&sending_timer, SIGNAL(timeout()), this, SLOT(TimeoutElapsed()));
     sending_timer.setSingleShot(true);
 }
 
-MainWindow::~MainWindow()
+FWTPClient::~FWTPClient()
 {
-    delete ui;
+
 }
 
-
-void MainWindow::on_pbFile_clicked()
+void FWTPClient::on_pbStart_clicked()
 {
-    ui->leFile->setText(QFileDialog::getOpenFileName(this, tr("Open Firmware File"),
-                                                            "fw.bin",
-                                                            tr("Binary File (*.bin *.img)")));
-}
+//    if (ui->pbStart->text() == "Stop")
+//    {
+//        sending_timer.stop();
+//        ui->pbStart->setText("Start");
+//        return;
+//    }
 
-void MainWindow::on_pbStart_clicked()
-{
-    if (ui->pbStart->text() == "Stop")
-    {
-        sending_timer.stop();
-        ui->pbStart->setText("Start");
-        return;
-    }
+//    ui->peStatus->clear();
 
-    ui->peStatus->clear();
+//    if (ui->leFile->text().isEmpty())
+//    {
+//        ui->peStatus->appendPlainText("No input file");
+//    }
 
-    if (ui->leFile->text().isEmpty())
-    {
-        ui->peStatus->appendPlainText("No input file");
-    }
-
-    QFile FWFile(ui->leFile->text());
+    QFile FWFile(file_name);
 
     if (FWFile.open(QIODevice::ReadOnly))
     {
-        ui->peStatus->appendPlainText(tr("File opened. Size: %1").arg(FWFile.size()));
+        qDebug() << tr("File opened. Size: %1").arg(FWFile.size());
 
-        auto server_ip = QHostAddress(ui->leServer->text());
+        auto server_ip = QHostAddress(server_addr_str);
 
         if (udp_socket == NULL)
         {
@@ -64,7 +54,7 @@ void MainWindow::on_pbStart_clicked()
             }
             else
             {
-                ui->peStatus->appendPlainText("FWTP port is occupied");
+                qDebug() << "FWTP port is occupied";
             }
         }
 
@@ -79,20 +69,22 @@ void MainWindow::on_pbStart_clicked()
 
         /*calculate number of blocks*/
         blocks_num = (fw_data->size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        ui->peStatus->appendPlainText(tr("Total blocks: %1 by %2 bytes").arg(blocks_num).arg(BLOCK_SIZE));
+        qDebug() << tr("Total blocks: %1 by %2 bytes").arg(blocks_num).arg(BLOCK_SIZE);
         if (blocks_num > UINT16_MAX)
         {
-            ui->peStatus->appendPlainText("Too many blocks. Abort");
+            qDebug() << "Too many blocks. Abort";
             return;
         }
 
         /*Set File ID*/
-        switch (ui->cbSubsystem->currentIndex()) {
-        case 0: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
-        case 1: file_id = FWTP_SUBSYSTEM1_FILE_ID; break;
-        case 2: file_id = FWTP_SUBSYSTEM2_FILE_ID; break;
-        default: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
-        }
+//        switch (ui->cbSubsystem->currentIndex()) {
+//        case 0: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
+//        case 1: file_id = FWTP_SUBSYSTEM1_FILE_ID; break;
+//        case 2: file_id = FWTP_SUBSYSTEM2_FILE_ID; break;
+//        default: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
+//        }
+
+        file_id = FWTP_MAINSYSTEM_FILE_ID;
 
         /*Start to send data*/
         state = FILE_START;
@@ -100,35 +92,35 @@ void MainWindow::on_pbStart_clicked()
         file_offset = 0;
         TimeoutElapsed();
 
-        ui->pbStart->setText("Stop");
+        qDebug() << "Stop";
     }
     else
     {
-        ui->peStatus->appendPlainText("Can't open firmware file");
+        qDebug() << "Can't open firmware file";
     }
 }
 
-void MainWindow::TimeoutElapsed()
+void FWTPClient::TimeoutElapsed()
 {
     if (state == FILE_START)
     {
-        ui->peStatus->appendPlainText("Start sending");
+        qDebug() << "Start sending";
         StartWrite(file_id, (uint32_t) fw_data->size());
     }
     else if (state == FILE_SENDING)
     {
-        ui->peStatus->appendPlainText(tr("Block sending: %1").arg(block_id));
+        qDebug() << tr("Block sending: %1").arg(block_id);
         BlockWrite(file_id, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
     }
     else if (state == FILE_STOP)
     {
-        ui->peStatus->appendPlainText("Stop sending");
+        qDebug() << "Stop sending";
         StopWrite(file_id);
     }
     sending_timer.start(5000);
 }
 
-void MainWindow::ReadUDP()
+void FWTPClient::ReadUDP()
 {
     while (udp_socket->hasPendingDatagrams()) {
         QByteArray datagram;
@@ -145,7 +137,7 @@ void MainWindow::ReadUDP()
         uint16_t calc_crc16 = FWTPCRC(p, datagram.size()-2);
         if (block_crc16 != calc_crc16)
         {
-            ui->peStatus->appendPlainText("Invalid CRC");
+            qDebug() << "Invalid CRC";
         }
 
         struct fwtp_hdr* hdr = (struct fwtp_hdr*) p;
@@ -161,7 +153,8 @@ void MainWindow::ReadUDP()
             }
             else if (state == FILE_SENDING)
             {
-                ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
+                //ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
+                qDebug() << (100*(block_id+1)/blocks_num) << "%";
 
                 block_id++;
                 file_offset += BLOCK_SIZE;
@@ -176,13 +169,13 @@ void MainWindow::ReadUDP()
             else if (state == FILE_STOP)
             {
                 state = FILE_FINISHED;
-                ui->pbStart->setText("Start");
+                qDebug() << "Start";
             }
         }
     }
 }
 
-uint32_t MainWindow::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t offset, QByteArray data)
+uint32_t FWTPClient::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t offset, QByteArray data)
 {
     if (data.isEmpty() || (data.size() > UINT16_MAX) || (ttl_size > UINT32_MAX)) {
         return 0;
@@ -210,13 +203,13 @@ uint32_t MainWindow::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t off
     packet.append((const char *) &crc, 2);
 
     /*Sending*/
-    if (udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT) < 0)
+    if (udp_socket->writeDatagram(packet, QHostAddress(server_addr_str), FWTP_SERVER_PORT) < 0)
     {
-        ui->peStatus->appendPlainText("Sending error");
+        qDebug() << "Sending error";
     }
 }
 
-uint32_t MainWindow::StartWrite(uint8_t file_id, uint32_t ttl_size)
+uint32_t FWTPClient::StartWrite(uint8_t file_id, uint32_t ttl_size)
 {
     if (ttl_size > UINT32_MAX) {
         return 0;
@@ -235,16 +228,15 @@ uint32_t MainWindow::StartWrite(uint8_t file_id, uint32_t ttl_size)
     tx_hdr->block_size = 0;
     tx_hdr->packet_id = 0;
 
-
     /*Add CRC*/
     uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.size());
     packet.append((const char *) &crc, 2);
 
     /*Sending*/
-    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT);
+    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(server_addr_str), FWTP_SERVER_PORT);
 }
 
-uint32_t MainWindow::StopWrite(uint8_t file_id)
+uint32_t FWTPClient::StopWrite(uint8_t file_id)
 {
     QByteArray packet;
     packet.resize(FWTP_HDR_SIZE);
@@ -272,17 +264,17 @@ uint32_t MainWindow::StopWrite(uint8_t file_id)
         }
         else
         {
-            ui->peStatus->appendPlainText("FWTP port is occupied");
+            qDebug() << "FWTP port is occupied";
         }
     }
 
     /*Sending*/
-    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT);
+    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(server_addr_str), FWTP_SERVER_PORT);
 }
 
-void MainWindow::on_pbStop_clicked()
-{
-    StopWrite(0x10);
+//void FWTPClient::on_pbStop_clicked()
+//{
+//    StopWrite(0x10);
 
-    ui->peStatus->appendPlainText("Stop sending");
-}
+//    ui->peStatus->appendPlainText("Stop sending");
+//}
