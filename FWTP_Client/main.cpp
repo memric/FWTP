@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QCommandLineParser>
 #include <QDebug>
+#include "fwtp_client.h"
 
 int main(int argc, char *argv[])
 {
@@ -33,5 +34,11 @@ int main(int argc, char *argv[])
         qDebug() << "Error: Server address and filename must be specified. Type -h for help.";
     }
 
-//    return app.exec();
+    FWTPClient *client = new FWTPClient(args.at(0), args.at(1));
+
+    QObject::connect(client, SIGNAL(Finished()), &app, SLOT(quit()));
+
+    client->Start();
+
+    return app.exec();
 }

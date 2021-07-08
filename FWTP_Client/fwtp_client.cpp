@@ -7,9 +7,11 @@
 #define FWTP_SERVER_PORT	8017
 #define BLOCK_SIZE          512
 
-FWTPClient::FWTPClient(QObject *parent)
-    : QObject(parent)
+FWTPClient::FWTPClient(QString server, QString file)
 {
+    server_addr_str = server;
+    file_name = file;
+
     udp_socket = NULL;
     fw_data = NULL;
     connect(&sending_timer, SIGNAL(timeout()), this, SLOT(TimeoutElapsed()));
@@ -21,27 +23,13 @@ FWTPClient::~FWTPClient()
 
 }
 
-void FWTPClient::on_pbStart_clicked()
+void FWTPClient::Start()
 {
-//    if (ui->pbStart->text() == "Stop")
-//    {
-//        sending_timer.stop();
-//        ui->pbStart->setText("Start");
-//        return;
-//    }
-
-//    ui->peStatus->clear();
-
-//    if (ui->leFile->text().isEmpty())
-//    {
-//        ui->peStatus->appendPlainText("No input file");
-//    }
-
     QFile FWFile(file_name);
 
     if (FWFile.open(QIODevice::ReadOnly))
     {
-        qDebug() << tr("File opened. Size: %1").arg(FWFile.size());
+        qDebug() << "File opened. Size: " << FWFile.size();
 
         auto server_ip = QHostAddress(server_addr_str);
 
@@ -69,7 +57,7 @@ void FWTPClient::on_pbStart_clicked()
 
         /*calculate number of blocks*/
         blocks_num = (fw_data->size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        qDebug() << tr("Total blocks: %1 by %2 bytes").arg(blocks_num).arg(BLOCK_SIZE);
+        qDebug() << "Total blocks: " <<  blocks_num << " by " << BLOCK_SIZE << " bytes";
         if (blocks_num > UINT16_MAX)
         {
             qDebug() << "Too many blocks. Abort";
@@ -91,8 +79,6 @@ void FWTPClient::on_pbStart_clicked()
         block_id = 0;
         file_offset = 0;
         TimeoutElapsed();
-
-        qDebug() << "Stop";
     }
     else
     {
@@ -109,7 +95,7 @@ void FWTPClient::TimeoutElapsed()
     }
     else if (state == FILE_SENDING)
     {
-        qDebug() << tr("Block sending: %1").arg(block_id);
+        qDebug() << "Block sending:" << block_id << "(" << (int) (100*(block_id+1)/blocks_num) << "% )" ;
         BlockWrite(file_id, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
     }
     else if (state == FILE_STOP)
@@ -154,7 +140,6 @@ void FWTPClient::ReadUDP()
             else if (state == FILE_SENDING)
             {
                 //ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
-                qDebug() << (100*(block_id+1)/blocks_num) << "%";
 
                 block_id++;
                 file_offset += BLOCK_SIZE;
@@ -169,7 +154,8 @@ void FWTPClient::ReadUDP()
             else if (state == FILE_STOP)
             {
                 state = FILE_FINISHED;
-                qDebug() << "Start";
+                qDebug() << "Finished";
+                emit Finished();
             }
         }
     }
@@ -207,6 +193,8 @@ uint32_t FWTPClient::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t off
     {
         qDebug() << "Sending error";
     }
+
+    return (uint32_t) packet.size();
 }
 
 uint32_t FWTPClient::StartWrite(uint8_t file_id, uint32_t ttl_size)
@@ -271,10 +259,3 @@ uint32_t FWTPClient::StopWrite(uint8_t file_id)
     /*Sending*/
     return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(server_addr_str), FWTP_SERVER_PORT);
 }
-
-//void FWTPClient::on_pbStop_clicked()
-//{
-//    StopWrite(0x10);
-
-//    ui->peStatus->appendPlainText("Stop sending");
-//}

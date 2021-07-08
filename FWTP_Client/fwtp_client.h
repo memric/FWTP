@@ -9,22 +9,23 @@ class FWTPClient : public QObject
     Q_OBJECT
 
 public:
-    FWTPClient(QObject *parent = nullptr);
+    FWTPClient(QString server, QString file);
     ~FWTPClient();
 
     typedef enum {FILE_START = 0, FILE_SENDING, FILE_STOP, FILE_FINISHED} file_state_t;
 
+public slots:
+    void Start();
+
 private slots:
-    void on_pbStart_clicked();
-
     void ReadUDP();
-
     uint32_t BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t offset, QByteArray data);
     uint32_t StartWrite(uint8_t file_id, uint32_t ttl_size);
     uint32_t StopWrite(uint8_t file_id);
     void TimeoutElapsed();
 
-//    void on_pbStop_clicked();
+signals:
+    void Finished(void);
 
 private:
     QUdpSocket *udp_socket;
