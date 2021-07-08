@@ -31,6 +31,8 @@ private slots:
     uint32_t StopWrite(uint8_t file_id);
     void TimeoutElapsed();
 
+    void on_pbStop_clicked();
+
 private:
     Ui::MainWindow *ui;
     QUdpSocket *udp_socket;
@@ -40,5 +42,6 @@ private:
     uint32_t file_offset;
     QTimer sending_timer;
     file_state_t state;
+    uint8_t file_id;
 };
 #endif // MAINWINDOW_H

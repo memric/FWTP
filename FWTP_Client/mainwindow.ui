@@ -31,6 +31,32 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QLabel" name="lbSubsystem">
+        <property name="text">
+         <string>Subsystem:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="cbSubsystem">
+        <item>
+         <property name="text">
+          <string>Main</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Subsystem 1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Subsystem 2</string>
+         </property>
+        </item>
+       </widget>
+      </item>
      </layout>
     </item>
     <item>
@@ -69,11 +95,22 @@
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="pbStart">
-      <property name="text">
-       <string>Start</string>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <item>
+       <widget class="QPushButton" name="pbStart">
+        <property name="text">
+         <string>Start</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pbStop">
+        <property name="text">
+         <string>Stop</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
    </layout>
   </widget>
@@ -83,7 +120,7 @@
      <x>0</x>
      <y>0</y>
      <width>622</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
   </widget>

@@ -86,6 +86,14 @@ void MainWindow::on_pbStart_clicked()
             return;
         }
 
+        /*Set File ID*/
+        switch (ui->cbSubsystem->currentIndex()) {
+        case 0: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
+        case 1: file_id = FWTP_SUBSYSTEM1_FILE_ID; break;
+        case 2: file_id = FWTP_SUBSYSTEM2_FILE_ID; break;
+        default: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
+        }
+
         /*Start to send data*/
         state = FILE_START;
         block_id = 0;
@@ -105,17 +113,17 @@ void MainWindow::TimeoutElapsed()
     if (state == FILE_START)
     {
         ui->peStatus->appendPlainText("Start sending");
-        StartWrite(FWTP_MAINSYSTEM_FILE_ID, (uint32_t) fw_data->size());
+        StartWrite(file_id, (uint32_t) fw_data->size());
     }
     else if (state == FILE_SENDING)
     {
         ui->peStatus->appendPlainText(tr("Block sending: %1").arg(block_id));
-        BlockWrite(FWTP_MAINSYSTEM_FILE_ID, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
+        BlockWrite(file_id, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
     }
     else if (state == FILE_STOP)
     {
         ui->peStatus->appendPlainText("Stop sending");
-        StopWrite(FWTP_MAINSYSTEM_FILE_ID);
+        StopWrite(file_id);
     }
     sending_timer.start(5000);
 }
@@ -202,7 +210,10 @@ uint32_t MainWindow::BlockWrite(uint8_t file_id, uint32_t ttl_size, uint32_t off
     packet.append((const char *) &crc, 2);
 
     /*Sending*/
-    return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT);
+    if (udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT) < 0)
+    {
+        ui->peStatus->appendPlainText("Sending error");
+    }
 }
 
 uint32_t MainWindow::StartWrite(uint8_t file_id, uint32_t ttl_size)
@@ -248,11 +259,30 @@ uint32_t MainWindow::StopWrite(uint8_t file_id)
     tx_hdr->block_size = 0;
     tx_hdr->packet_id = 0;
 
-
     /*Add CRC*/
     uint16_t crc = FWTPCRC((uint8_t *) packet.data(), (uint16_t) packet.size());
     packet.append((const char *) &crc, 2);
 
+    if (udp_socket == NULL)
+    {
+        udp_socket = new QUdpSocket(this);
+        if (udp_socket->bind(QHostAddress::Any, FWTP_SERVER_PORT) == true)
+        {
+            //connect(udp_socket, SIGNAL(readyRead()), this, SLOT(ReadUDP()));
+        }
+        else
+        {
+            ui->peStatus->appendPlainText("FWTP port is occupied");
+        }
+    }
+
     /*Sending*/
     return (uint32_t) udp_socket->writeDatagram(packet, QHostAddress(ui->leServer->text()), FWTP_SERVER_PORT);
+}
+
+void MainWindow::on_pbStop_clicked()
+{
+    StopWrite(0x10);
+
+    ui->peStatus->appendPlainText("Stop sending");
 }
