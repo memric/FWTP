@@ -9,7 +9,7 @@ class FWTPClient : public QObject
     Q_OBJECT
 
 public:
-    FWTPClient(QString server, QString file);
+    FWTPClient(uint8_t id, QString server, QString file, uint16_t block);
     ~FWTPClient();
 
     typedef enum {FILE_START = 0, FILE_SENDING, FILE_STOP, FILE_FINISHED} file_state_t;
@@ -36,6 +36,7 @@ private:
     QTimer sending_timer;
     file_state_t state;
     uint8_t file_id;
+    uint16_t block_size;
     QString server_addr_str;
     QString file_name;
 };

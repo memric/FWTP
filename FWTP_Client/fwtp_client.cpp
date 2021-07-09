@@ -5,12 +5,14 @@
 #include <QFile>
 
 #define FWTP_SERVER_PORT	8017
-#define BLOCK_SIZE          512
+//#define BLOCK_SIZE          512
 
-FWTPClient::FWTPClient(QString server, QString file)
+FWTPClient::FWTPClient(uint8_t id, QString server, QString file, uint16_t block)
 {
     server_addr_str = server;
     file_name = file;
+    file_id = id;
+    block_size = block;
 
     udp_socket = NULL;
     fw_data = NULL;
@@ -56,23 +58,13 @@ void FWTPClient::Start()
         FWFile.close();
 
         /*calculate number of blocks*/
-        blocks_num = (fw_data->size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        qDebug() << "Total blocks: " <<  blocks_num << " by " << BLOCK_SIZE << " bytes";
+        blocks_num = (fw_data->size() + block_size - 1) / block_size;
+        qDebug() << "Total blocks: " <<  blocks_num << " by " << block_size << " bytes";
         if (blocks_num > UINT16_MAX)
         {
             qDebug() << "Too many blocks. Abort";
             return;
         }
-
-        /*Set File ID*/
-//        switch (ui->cbSubsystem->currentIndex()) {
-//        case 0: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
-//        case 1: file_id = FWTP_SUBSYSTEM1_FILE_ID; break;
-//        case 2: file_id = FWTP_SUBSYSTEM2_FILE_ID; break;
-//        default: file_id = FWTP_MAINSYSTEM_FILE_ID; break;
-//        }
-
-        file_id = FWTP_MAINSYSTEM_FILE_ID;
 
         /*Start to send data*/
         state = FILE_START;
@@ -90,13 +82,13 @@ void FWTPClient::TimeoutElapsed()
 {
     if (state == FILE_START)
     {
-        qDebug() << "Start sending";
+        qDebug() << "Start sending for File ID:" << file_id;
         StartWrite(file_id, (uint32_t) fw_data->size());
     }
     else if (state == FILE_SENDING)
     {
         qDebug() << "Block sending:" << block_id << "(" << (int) (100*(block_id+1)/blocks_num) << "% )" ;
-        BlockWrite(file_id, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, BLOCK_SIZE));
+        BlockWrite(file_id, (uint32_t) fw_data->size(), file_offset, fw_data->mid(file_offset, block_size));
     }
     else if (state == FILE_STOP)
     {
@@ -142,7 +134,7 @@ void FWTPClient::ReadUDP()
                 //ui->pbLoad->setValue((int) (100*(block_id+1)/blocks_num));
 
                 block_id++;
-                file_offset += BLOCK_SIZE;
+                file_offset += block_size;
 
                 if (block_id == blocks_num)
                 {
