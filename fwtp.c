@@ -216,6 +216,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 		else
 		{
 			PTRACE_ERR("Block writing error\r\n");
+			return FWTP_ERR_FS;
 		}
 	}
 	else

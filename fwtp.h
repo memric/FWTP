@@ -17,7 +17,10 @@ extern "C" {
 #define FWTP_VER					1 /*Supported version*/
 
 #define FWTP_SERVER_PORT			8017
-#define FWTP_RX_MAX_DATA			(512 + 16)
+#ifndef FWTP_MAX_BLOCK_SIZE
+#define FWTP_MAX_BLOCK_SIZE			1024
+#endif
+#define FWTP_RX_MAX_DATA			(FWTP_MAX_BLOCK_SIZE + 16)
 #define FWTP_TX_MAX_DATA			64
 
 #define FWTP_BOOTLOADER_FILE_ID		0x01
