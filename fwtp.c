@@ -239,7 +239,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 __attribute__((weak))
 uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p)
 {
-	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
+	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
 
 	/* TODO write routine*/
 	PTRACE("Block received; File ID: %u; Offset: %u; Size: %u;\r\n", file_id, offset, len);
@@ -259,7 +259,7 @@ uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, ui
 __attribute__((weak))
 uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
 {
-	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
+	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
 
 	PTRACE("File start command received; File ID: %u; Size: %u\r\n", file_id, ttl_fsize);
 
@@ -274,7 +274,7 @@ uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
 __attribute__((weak))
 uint32_t FWTPFileStop(uint8_t file_id)
 {
-	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
+	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
 
 	PTRACE("File stop command received; File ID: %u\r\n", file_id);
 
