@@ -25,7 +25,7 @@ OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
 vpath %.c $(sort $(dir $(C_SOURCES)))
 
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR) 
-	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@	
+	$(CC) -c $(CFLAGS) $< -o $@	
 	
 $(BUILD_DIR)/$(TARGET): $(OBJECTS) Makefile
 	$(CC) $(OBJECTS) -o $@
