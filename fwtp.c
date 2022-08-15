@@ -168,6 +168,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 {
 	if (len < sizeof(struct fwtp_hdr) + 2)
 	{
+        PTRACE_ERR("Invalid packet length\r\n");
 		return FWTP_ERR_SIZE;
 	}
 
@@ -187,6 +188,12 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 		PTRACE_ERR("FWTP unsupported version: supported %d, obtained %d\r\n", FWTP_VER, FWTP_HDR_GET_VER(hdr));
 		return FWTP_ERR_VER;
 	}
+    
+    if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_NOPE)
+    {
+        PTRACE("Nope command received\r\n");
+        return FWTP_ERR_OK;
+    }
 
 	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_START)
 	{
@@ -288,7 +295,7 @@ void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 	/* set up address to connect to */
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(FWTP_SERVER_PORT);
+	addr.sin_port = htons(FWTP_CLIENT_PORT);
 	addr.sin_addr.s_addr = src->sin_addr.s_addr;
 
 	struct fwtp_hdr* tx_hdr = (struct fwtp_hdr*) FWTP_TX_Buffer;

@@ -5,3 +5,4 @@ test/Release
 test/build
 build*
 pyFWTP/.settings
+pyFWTP/__pycache__

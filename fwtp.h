@@ -17,6 +17,7 @@ extern "C" {
 #define FWTP_VER					1 /*Supported version*/
 
 #define FWTP_SERVER_PORT			8017
+#define FWTP_CLIENT_PORT            8018
 #ifndef FWTP_MAX_BLOCK_SIZE
 #define FWTP_MAX_BLOCK_SIZE			1024
 #endif
