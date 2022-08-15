@@ -32,13 +32,54 @@ class FWTP:
         
     # Nope command request
     def nope(self):
-        packet = self.pack(FWTP_CMD_NOPE, 0, 0, 0, 0, None)
+        packet = self.pack(FWTP_CMD_NOPE)
         resp = self.send_receive(packet)
-        print(resp)
-        self.unpack(resp)
+        
+        if resp != None:
+            payload = self.unpack(resp)
+            if payload != None:
+                return True
+        
+        return False
+    
+    # Start command
+    def start(self, file_id, ttl_size):
+        packet = self.pack(FWTP_CMD_START, file_id = file_id, ttl_size = ttl_size)
+        resp = self.send_receive(packet)
+        
+        if resp != None:
+            payload = self.unpack(resp)
+            if payload != None:
+                return True
+        
+        return False
+        
+    # Stop command
+    def stop(self, file_id):
+        packet = self.pack(FWTP_CMD_STOP, file_id = file_id)
+        resp = self.send_receive(packet)
+        
+        if resp != None:
+            payload = self.unpack(resp)
+            if payload != None:
+                return True
+        
+        return False
+        
+    # Send block
+    def write(self, file_id, ttl_size, block_offset, block_size, data):
+        packet = self.pack(FWTP_CMD_WR, file_id, ttl_size, block_offset, block_size, data)
+        resp = self.send_receive(packet)
+        
+        if resp != None:
+            payload = self.unpack(resp)
+            if payload != None:
+                return True
+        
+        return False
       
     # Packet composer
-    def pack(self, cmd, file_id, ttl_size, block_offset, block_size, data):
+    def pack(self, cmd, file_id = 0, ttl_size = 0, block_offset = 0, block_size = 0, data = None):
         #Construct header
         packet = struct.pack('<BBHLLH',
             FWTP_VER << 6 | cmd << 3,               # Set version and command
@@ -76,7 +117,7 @@ class FWTP:
         #get header values
         header = data[:FWTP_HDR_SIZE]
         hdr_params = struct.unpack('<BBHLLH', header)
-        print(hdr_params)
+#        print(hdr_params)
         
         #get version
         if (hdr_params[0] >> 6) != FWTP_VER:

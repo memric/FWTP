@@ -246,7 +246,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 __attribute__((weak))
 uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p)
 {
-	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
+	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
 
 	/* TODO write routine*/
 	PTRACE("Block received; File ID: %u; Offset: %u; Size: %u;\r\n", file_id, offset, len);
