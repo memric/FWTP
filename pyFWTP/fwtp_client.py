@@ -41,7 +41,7 @@ def main(argv=None):
             print("Can't open file")
             return 1
         
-        client = FWTP(args.ip)
+        client = FWTP(ip)
         
         # Nope commant to check link
         print('Check server on IP: %s -> '%(ip), end='')

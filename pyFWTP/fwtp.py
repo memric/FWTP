@@ -27,7 +27,7 @@ class FWTP:
     def __init__(self, client):
         self.client = client
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((self.client, FWTP_CLIENT_PORT))
+        self.sock.bind(('', FWTP_CLIENT_PORT))
         self.sock.settimeout(3)
         
     # Nope command request
