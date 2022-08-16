@@ -28,7 +28,7 @@ class FWTP:
         self.client = client
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('', FWTP_CLIENT_PORT))
-        self.sock.settimeout(3)
+        self.sock.settimeout(5) #TODO as parameter
         
     # Nope command request
     def nope(self):
