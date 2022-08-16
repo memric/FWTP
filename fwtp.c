@@ -61,12 +61,12 @@ static uint8_t FWTP_RX_Buffer[FWTP_RX_MAX_DATA];
 static uint8_t FWTP_TX_Buffer[FWTP_TX_MAX_DATA];
 
 #if defined(__linux__) || (__APPLE__)
-void* FWTPServerThread(void * argument);
+void* FWTP_ServerThread(void * argument);
 #else
-void FWTPServerThread(void * argument);
+void FWTP_ServerThread(void * argument);
 #endif
-uint32_t FWTPPacketParser(uint8_t *p, uint16_t len);
-void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
+uint32_t FWTP_PacketParser(uint8_t *p, uint16_t len);
+void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
 
 /**
  * @brief FWTP Initialization
@@ -80,7 +80,7 @@ uint32_t FWTP_Init(void)
 	pthread_create(&hFWTP, NULL, FWTPServerThread, NULL);
 	if (pthread_join(hFWTP, NULL)) return 1;
 #elif defined(ESP_PLATFORM) || _RTOS_
-	xTaskCreate(FWTPServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP);
+	xTaskCreate(FWTP_ServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP);
 #endif
 
 	return 0;
@@ -91,9 +91,9 @@ uint32_t FWTP_Init(void)
  * @param argument
  */
 #if defined(__linux__) || (__APPLE__)
-void* FWTPServerThread(void * argument)
+void* FWTP_ServerThread(void * argument)
 #else
-void FWTPServerThread(void * argument)
+void FWTP_ServerThread(void * argument)
 #endif
 {
 	int32_t err, recv_len;
@@ -129,9 +129,9 @@ void FWTPServerThread(void * argument)
 				/*If data is present*/
 				if (recv_len > 0)
 				{
-					if (FWTPPacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
+					if (FWTP_PacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
 					{
-						FWTPAckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
+						FWTP_AckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
 					}
 					else
 					{
@@ -164,7 +164,7 @@ void FWTPServerThread(void * argument)
  * @param p
  * @param len
  */
-uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
+uint32_t FWTP_PacketParser(uint8_t *p, uint16_t len)
 {
 	if (len < sizeof(struct fwtp_hdr) + 2)
 	{
@@ -174,7 +174,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 
 	/*Calculate CRC*/
 	uint16_t block_crc16 = *((uint16_t *) &p[len-2]);
-	uint16_t calc_crc16 = FWTPCRC(p, len-2);
+	uint16_t calc_crc16 = FWTP_CRC(p, len-2);
 	if (block_crc16 != calc_crc16)
 	{
 		PTRACE_ERR("Invalid CRC: expected %d, obtained %d\r\n", calc_crc16, block_crc16);
@@ -189,23 +189,21 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 		return FWTP_ERR_VER;
 	}
     
+	/*Check command*/
     if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_NOPE)
     {
         PTRACE("Nope command received\r\n");
         return FWTP_ERR_OK;
     }
-
-	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_START)
+    else if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_START)
 	{
-		return FWTPFileStart(hdr->file_id, hdr->file_size);
+		return FWTP_FileStart(hdr->file_id, hdr->file_size);
 	}
-
-	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_STOP)
+    else if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_STOP)
 	{
-		return FWTPFileStop(hdr->file_id);
+		return FWTP_FileStop(hdr->file_id);
 	}
-
-	if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_WR)
+    else if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_WR)
 	{
 		/*Check block size*/
 		if (hdr->block_size != (len - 2 - sizeof(struct fwtp_hdr)))
@@ -215,7 +213,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
 		}
 
 		/*Write data block*/
-		if (hdr->block_size == FWTPBlockWrite(hdr->file_id, hdr->file_size, hdr->block_offset,
+		if (hdr->block_size == FWTP_BlockWrite(hdr->file_id, hdr->file_size, hdr->block_offset,
 				hdr->block_size, &p[sizeof(struct fwtp_hdr)]))
 		{
 			/*OK*/
@@ -244,7 +242,7 @@ uint32_t FWTPPacketParser(uint8_t *p, uint16_t len)
  * @return
  */
 __attribute__((weak))
-uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p)
+uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p)
 {
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
 
@@ -264,7 +262,7 @@ uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, ui
  * @return
  */
 __attribute__((weak))
-uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
+uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize)
 {
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
 
@@ -279,7 +277,7 @@ uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize)
  * @return
  */
 __attribute__((weak))
-uint32_t FWTPFileStop(uint8_t file_id)
+uint32_t FWTP_FileStop(uint8_t file_id)
 {
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
 
@@ -288,7 +286,7 @@ uint32_t FWTPFileStop(uint8_t file_id)
 	return FWTP_ERR_OK;
 }
 
-void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
+void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 {
 	struct sockaddr_in addr;
 
@@ -308,7 +306,7 @@ void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 
 	/*Calculate CRC*/
 	uint16_t *pblock_crc16 = (uint16_t *) &FWTP_TX_Buffer[sizeof(struct fwtp_hdr)];
-	*pblock_crc16 = FWTPCRC(FWTP_TX_Buffer, sizeof(struct fwtp_hdr));
+	*pblock_crc16 = FWTP_CRC(FWTP_TX_Buffer, sizeof(struct fwtp_hdr));
 
 	/* Send to client*/
 	if (sendto(sock, FWTP_TX_Buffer, sizeof(struct fwtp_hdr) + 2, 0,
@@ -328,7 +326,7 @@ void FWTPAckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
  * @param len
  * @return
  */
-uint16_t FWTPCRC(uint8_t * pdata, uint16_t len)
+uint16_t FWTP_CRC(uint8_t * pdata, uint16_t len)
 {
 	uint16_t crc = 0xFFFF;
 	uint8_t i;

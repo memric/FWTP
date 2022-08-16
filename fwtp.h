@@ -88,10 +88,10 @@ struct fwtp_hdr {
 } __attribute__ ((__packed__));
 
 uint32_t FWTP_Init(void);
-uint16_t FWTPCRC(uint8_t * pdata, uint16_t len);
-uint32_t FWTPBlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
-uint32_t FWTPFileStart(uint8_t file_id, uint32_t ttl_fsize);
-uint32_t FWTPFileStop(uint8_t file_id);
+uint16_t FWTP_CRC(uint8_t * pdata, uint16_t len);
+uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
+uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize);
+uint32_t FWTP_FileStop(uint8_t file_id);
 
 #ifdef __cplusplus
 }
