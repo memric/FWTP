@@ -69,8 +69,8 @@ uint32_t FWTP_PacketParser(uint8_t *p, uint16_t len);
 void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
 
 /**
- * @brief FWTP Initialization
- * @return Error code
+ * @brief   FWTP Initialization
+ * @return  Error code
  */
 uint32_t FWTP_Init(void)
 {
@@ -83,12 +83,12 @@ uint32_t FWTP_Init(void)
 	xTaskCreate(FWTP_ServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP);
 #endif
 
-	return 0;
+	return FWTP_ERR_OK;
 }
 
 /**
- * @brief Main FWTP thread
- * @param argument
+ * @brief   Main FWTP thread
+ * @param   argument
  */
 #if defined(__linux__) || (__APPLE__)
 void* FWTP_ServerThread(void * argument)
@@ -160,9 +160,9 @@ void FWTP_ServerThread(void * argument)
 }
 
 /**
- *
- * @param p
- * @param len
+ * @brief       Packet data parser
+ * @param p     Pointer to data
+ * @param len   Data length
  */
 uint32_t FWTP_PacketParser(uint8_t *p, uint16_t len)
 {
@@ -233,13 +233,14 @@ uint32_t FWTP_PacketParser(uint8_t *p, uint16_t len)
 }
 
 /**
- * @brief Writes file block to file system or memory corresponding to file_id
- * @param file_id
- * @param ttl_fsize
- * @param offset
- * @param len
- * @param p
- * @return
+ * @brief           Callback function. Invoked to write a file data block to the file system or memory.
+ *                  Provide your own implementation.
+ * @param file_id   File ID
+ * @param ttl_fsize Total file size
+ * @param offset    Block offset
+ * @param len       Block size
+ * @param p         Pointer to block data
+ * @return          Number of written bytes
  */
 __attribute__((weak))
 uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p)
@@ -256,10 +257,11 @@ uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, u
 }
 
 /**
- * @brief File start command callback
- * @param file_id
- * @param ttl_fsize
- * @return
+ * @brief           Callback function. Invoked when start command received.
+ *                  Provide your own implementation.
+ * @param file_id   File ID
+ * @param ttl_fsize Total file size
+ * @return          Error code. FWTP_ERR_OK for success.
  */
 __attribute__((weak))
 uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize)
@@ -272,9 +274,10 @@ uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize)
 }
 
 /**
- * @brief File stop command callback
- * @param file_id
- * @return
+ * @brief           Callback function. Invoked when stop command received.
+ *                  Provide your own implementation.
+ * @param file_id   File ID
+ * @return          Error code. FWTP_ERR_OK for success.
  */
 __attribute__((weak))
 uint32_t FWTP_FileStop(uint8_t file_id)
@@ -286,6 +289,12 @@ uint32_t FWTP_FileStop(uint8_t file_id)
 	return FWTP_ERR_OK;
 }
 
+/**
+ * @brief       Sends acknowledge response
+ * @param hdr   Header
+ * @param sock  Socket
+ * @param src   Client address
+ */
 void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 {
 	struct sockaddr_in addr;
@@ -321,10 +330,10 @@ void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 }
 
 /**
- * @brief CRC calculation
- * @param pdata
- * @param len
- * @return
+ * @brief       CRC calculation
+ * @param pdata Pointer to data
+ * @param len   Data size
+ * @return      CRC value
  */
 uint16_t FWTP_CRC(uint8_t * pdata, uint16_t len)
 {

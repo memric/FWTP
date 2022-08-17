@@ -61,7 +61,7 @@ extern "C" {
 /**
  * Packet Structure
  * -----------------------
- * 1 byte:	Header: Version (2 bits) + Command (3 bits) + Attributes (3 bits reserved)
+ * 1 byte:	Version (2 bits) + Command (3 bits) + Attributes (3 bits reserved)
  * -----------------------
  * 1 byte:  File ID
  * -----------------------
