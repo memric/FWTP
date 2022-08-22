@@ -39,6 +39,8 @@ extern "C" {
 #define FWTP_CMD_CRC				6 /*CRC sending*/
 #define FWTP_CMD_ERR				7 /*Error*/
 
+#define FWTP_ATTR_NONE              0 /*No attributes*/
+
 #define FWTP_HDR_GET_VER(a)			((a)->hdr >> 6) /*Get version from header*/
 #define FWTP_HDR_GET_CMD(a)			(((a)->hdr >> 3) & 0x7) /*Get command from header*/
 #define FWTP_HDR_GET_ATTR(a)		((a)->hdr & 0x7) /*Get attributes from header*/
@@ -55,6 +57,7 @@ extern "C" {
 #define FWTP_ERR_CMD				0x04
 #define FWTP_ERR_FILE_ID			0x05
 #define FWTP_ERR_FS					0x10
+#define FWTP_ERR_NET				0x11
 #define FWTP_ERR_SUBSYSTEM			0x20
 
 
@@ -92,6 +95,7 @@ uint16_t FWTP_CRC(uint8_t * pdata, uint16_t len);
 uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, uint8_t *p);
 uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize);
 uint32_t FWTP_FileStop(uint8_t file_id);
+void FWTP_PendingOperation(struct fwtp_hdr* hdr);
 
 #ifdef __cplusplus
 }

@@ -66,7 +66,7 @@ void* FWTP_ServerThread(void * argument);
 void FWTP_ServerThread(void * argument);
 #endif
 uint32_t FWTP_PacketParser(uint8_t *p, uint16_t len);
-void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
+uint32_t FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src);
 
 /**
  * @brief   FWTP Initialization
@@ -132,10 +132,15 @@ void FWTP_ServerThread(void * argument)
 					if (FWTP_PacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
 					{
 						FWTP_AckSend((struct fwtp_hdr*) FWTP_RX_Buffer, sock, &source_addr);
+
+						/*To do after acknowledge*/
+						FWTP_PendingOperation((struct fwtp_hdr*) FWTP_RX_Buffer);
 					}
 					else
 					{
 						PTRACE_ERR("FWTP error\r\n");
+
+						//TODO Is Error need to be sent?
 					}
 				}
 			}
@@ -291,11 +296,11 @@ uint32_t FWTP_FileStop(uint8_t file_id)
 
 /**
  * @brief       Sends acknowledge response
- * @param hdr   Header
+ * @param hdr   Pointer to received packet header
  * @param sock  Socket
  * @param src   Client address
  */
-void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
+uint32_t FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 {
 	struct sockaddr_in addr;
 
@@ -311,7 +316,7 @@ void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 	tx_hdr->hdr = 0;
 	FWTP_HDR_SET_VER(tx_hdr, FWTP_VER);
 	FWTP_HDR_SET_CMD(tx_hdr, FWTP_CMD_ACK);
-	FWTP_HDR_SET_ATTR(tx_hdr, 0);
+	FWTP_HDR_SET_ATTR(tx_hdr, FWTP_ATTR_NONE);
 
 	/*Calculate CRC*/
 	uint16_t *pblock_crc16 = (uint16_t *) &FWTP_TX_Buffer[sizeof(struct fwtp_hdr)];
@@ -319,14 +324,23 @@ void FWTP_AckSend(struct fwtp_hdr* hdr, int sock, struct sockaddr_in* src)
 
 	/* Send to client*/
 	if (sendto(sock, FWTP_TX_Buffer, sizeof(struct fwtp_hdr) + 2, 0,
-			( struct sockaddr* ) &addr, sizeof(struct sockaddr_in) ) > 0)
-	{
-		/*OK*/
-	}
-	else
+			( struct sockaddr* ) &addr, sizeof(struct sockaddr_in) ) <= 0)
 	{
 		PTRACE_ERR("Acknowledge sending error: socket %i\r\n", sock);
+		return FWTP_ERR_NET;
 	}
+
+	return FWTP_ERR_OK;
+}
+
+/**
+ * @brief       Invoked after acknowledge sending
+ * @param hdr   Pointer to received packet header
+ */
+__attribute__((weak))
+void FWTP_PendingOperation(struct fwtp_hdr* hdr)
+{
+    (void) hdr;
 }
 
 /**
