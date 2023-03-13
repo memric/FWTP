@@ -253,7 +253,7 @@ uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, u
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return 0;
 
 	/* TODO write routine*/
-	PTRACE("Block received; File ID: %u; Offset: %u; Size: %u;\r\n", file_id, offset, len);
+	PTRACE("Block received; File ID: %u; Offset: %lu; Size: %hu;\r\n", file_id, offset, len);
 
 	(void) ttl_fsize;
 	(void) p;
@@ -273,7 +273,7 @@ uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize)
 {
 	if (file_id != FWTP_MAINSYSTEM_FILE_ID) return FWTP_ERR_SUBSYSTEM;
 
-	PTRACE("File start command received; File ID: %u; Size: %u\r\n", file_id, ttl_fsize);
+	PTRACE("File start command received; File ID: %u; Size: %lu\r\n", file_id, ttl_fsize);
 
 	return FWTP_ERR_OK;
 }
