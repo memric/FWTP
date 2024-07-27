@@ -24,11 +24,11 @@ FWTP_CMD_ERR = 7  # Error
 
 class FWTP:
 
-    def __init__(self, client):
+    def __init__(self, client, timeout=8):
         self.client = client
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", FWTP_CLIENT_PORT))
-        self.sock.settimeout(5)  # TODO as parameter
+        self.sock.settimeout(timeout)
 
     # Nope command request
     def nope(self):
