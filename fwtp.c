@@ -23,7 +23,7 @@
 #include "lwip/opt.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
-#elif _RTOS_ // This means LwIP usage
+#elif _FREERTOS_ // This means LwIP usage
 #include "FreeRTOS.h"
 #include "lwip/opt.h"
 #include "lwip/sockets.h"
@@ -33,7 +33,7 @@
 #error "OS is not supported!"
 #endif
 
-#if defined(ESP_PLATFORM) || _RTOS_
+#if defined(ESP_PLATFORM) || _FREERTOS_
 #define FWTP_THREAD_STACK (4 * 1024)
 #define FWTP_THREAD_PRIO  (tskIDLE_PRIORITY + 2)
 #endif
@@ -53,12 +53,13 @@
 
 #if defined(__linux__) || (__APPLE__)
 static pthread_t hFWTP = NULL;
-#elif defined(ESP_PLATFORM) || _RTOS_
+#elif defined(ESP_PLATFORM) || _FREERTOS_
 static TaskHandle_t hFWTP = NULL;
 #endif
 
 static uint8_t FWTP_RX_Buffer[FWTP_RX_MAX_DATA];
 static uint8_t FWTP_TX_Buffer[FWTP_TX_MAX_DATA];
+static int fwtp_socket = -1;
 
 #if defined(__linux__) || (__APPLE__)
 void *FWTP_ServerThread(void *argument);
@@ -75,15 +76,43 @@ uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src);
 uint32_t FWTP_Init(void)
 {
     if (hFWTP != NULL)
+    {
         return 1;
+    }
 
 #if defined(__linux__) || (__APPLE__)
     pthread_create(&hFWTP, NULL, FWTPServerThread, NULL);
     if (pthread_join(hFWTP, NULL))
+    {
         return 1;
-#elif defined(ESP_PLATFORM) || _RTOS_
+    }
+#elif defined(ESP_PLATFORM) || _FREERTOS_
     xTaskCreate(FWTP_ServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP);
 #endif
+
+    return FWTP_ERR_OK;
+}
+
+/**
+ * @brief FWTP Deinitialization
+ * 
+ * @return uint32_t Error code
+ */
+uint32_t FWTP_Deinit(void)
+{
+#if defined(__linux__) || (__APPLE__)
+    pthread_cancel(hFWTP);
+#elif defined(ESP_PLATFORM) || _FREERTOS_
+    if (hFWTP != NULL)
+    {
+        vTaskDelete(hFWTP);
+    }
+#endif
+
+    if (fwtp_socket != -1)
+    {
+        close(fwtp_socket);
+    }
 
     return FWTP_ERR_OK;
 }
@@ -106,10 +135,10 @@ void FWTP_ServerThread(void *argument)
 
     PTRACE("Creating a new FWTP server\r\n");
 
-    /*Create new socket*/
-    int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    /* Create new socket */
+    fwtp_socket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
-    if (sock != -1)
+    if (fwtp_socket != -1)
     {
         struct sockaddr_in addr;
         /* set up address to connect to */
@@ -119,22 +148,23 @@ void FWTP_ServerThread(void *argument)
         addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
         /* Bind connection to port UDP_PORT. */
-        err                  = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
+        err                  = bind(fwtp_socket, (struct sockaddr *) &addr, sizeof(addr));
 
         if (err == 0)
         {
             while (1)
             {
                 addrLen  = sizeof(struct sockaddr);
-                recv_len = recvfrom(sock, FWTP_RX_Buffer, sizeof(FWTP_RX_Buffer), 0, (struct sockaddr *) &source_addr,
-                                    &addrLen);
+                recv_len = recvfrom(
+                    fwtp_socket, FWTP_RX_Buffer, sizeof(FWTP_RX_Buffer), 0, (struct sockaddr *) &source_addr, &addrLen
+                );
 
                 /*If data is present*/
                 if (recv_len > 0)
                 {
                     if (FWTP_PacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
                     {
-                        FWTP_AckSend((struct fwtp_hdr *) FWTP_RX_Buffer, sock, &source_addr);
+                        FWTP_AckSend((struct fwtp_hdr *) FWTP_RX_Buffer, fwtp_socket, &source_addr);
 
                         /*To do after acknowledge*/
                         FWTP_PendingOperation((struct fwtp_hdr *) FWTP_RX_Buffer);
@@ -148,7 +178,7 @@ void FWTP_ServerThread(void *argument)
                 }
             }
 
-            close(sock);
+            close(fwtp_socket);
         }
         else
         {
@@ -162,7 +192,7 @@ void FWTP_ServerThread(void *argument)
 
 #if defined(__linux__) || (__APPLE__)
     return NULL;
-#elif defined(ESP_PLATFORM) || _RTOS_
+#elif defined(ESP_PLATFORM) || _FREERTOS_
     vTaskDelete(NULL);
 #endif
 }
@@ -221,8 +251,10 @@ uint32_t FWTP_PacketParser(const uint8_t *p, uint16_t len)
         }
 
         /*Write data block*/
-        if (hdr->block_size == FWTP_BlockWrite(hdr->file_id, hdr->file_size, hdr->block_offset, hdr->block_size,
-                                               &p[sizeof(struct fwtp_hdr)]))
+        if (hdr->block_size ==
+            FWTP_BlockWrite(
+                hdr->file_id, hdr->file_size, hdr->block_offset, hdr->block_size, &p[sizeof(struct fwtp_hdr)]
+            ))
         {
             /*OK*/
         }
@@ -250,11 +282,13 @@ uint32_t FWTP_PacketParser(const uint8_t *p, uint16_t len)
  * @param p         Pointer to block data
  * @return          Number of written bytes
  */
-__attribute__((weak)) uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len,
-                                               const uint8_t *p)
+__attribute__((weak)) uint32_t
+FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, const uint8_t *p)
 {
     if (file_id != FWTP_MAINSYSTEM_FILE_ID)
+    {
         return 0;
+    }
 
     /* TODO write routine*/
     PTRACE("Block received; File ID: %u; Offset: %lu; Size: %hu;\r\n", file_id, offset, len);
@@ -275,7 +309,9 @@ __attribute__((weak)) uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsi
 __attribute__((weak)) uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize)
 {
     if (file_id != FWTP_MAINSYSTEM_FILE_ID)
+    {
         return FWTP_ERR_SUBSYSTEM;
+    }
 
     PTRACE("File start command received; File ID: %u; Size: %lu\r\n", file_id, ttl_fsize);
 
@@ -291,7 +327,9 @@ __attribute__((weak)) uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsiz
 __attribute__((weak)) uint32_t FWTP_FileStop(uint8_t file_id)
 {
     if (file_id != FWTP_MAINSYSTEM_FILE_ID)
+    {
         return FWTP_ERR_SUBSYSTEM;
+    }
 
     PTRACE("File stop command received; File ID: %u\r\n", file_id);
 
@@ -327,8 +365,9 @@ uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src)
     *pblock_crc16          = FWTP_CRC(FWTP_TX_Buffer, sizeof(struct fwtp_hdr));
 
     /* Send to client*/
-    if (sendto(sock, FWTP_TX_Buffer, sizeof(struct fwtp_hdr) + 2, 0, (struct sockaddr *) &addr,
-               sizeof(struct sockaddr_in)) <= 0)
+    if (sendto(
+            sock, FWTP_TX_Buffer, sizeof(struct fwtp_hdr) + 2, 0, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)
+        ) <= 0)
     {
         PTRACE_ERR("Acknowledge sending error: socket %i\r\n", sock);
         return FWTP_ERR_NET;
@@ -362,7 +401,9 @@ uint16_t FWTP_CRC(const uint8_t *pdata, uint16_t len)
         crc ^= *pdata++ << 8;
 
         for (i = 0; i < 8; i++)
+        {
             crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+        }
     }
 
     return crc;
