@@ -112,6 +112,7 @@ uint32_t FWTP_Deinit(void)
     if (fwtp_socket != -1)
     {
         close(fwtp_socket);
+        fwtp_socket = -1;
     }
 
     return FWTP_ERR_OK;
@@ -179,6 +180,7 @@ void FWTP_ServerThread(void *argument)
             }
 
             close(fwtp_socket);
+            fwtp_socket = -1;
         }
         else
         {
