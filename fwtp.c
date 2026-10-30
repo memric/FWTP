@@ -7,8 +7,8 @@
  */
 
 #include "fwtp.h"
-#include <string.h>
 #include <inttypes.h>
+#include <string.h>
 #if defined(__linux__) || (__APPLE__)
 #include <netinet/in.h>
 #include <pthread.h>
@@ -95,7 +95,7 @@ uint32_t FWTP_Init(void)
 
 /**
  * @brief FWTP Deinitialization
- * 
+ *
  * @return uint32_t Error code
  */
 uint32_t FWTP_Deinit(void)
@@ -149,7 +149,7 @@ void FWTP_ServerThread(void *argument)
         addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
         /* Bind connection to port UDP_PORT. */
-        err                  = bind(fwtp_socket, (struct sockaddr *) &addr, sizeof(addr));
+        err = bind(fwtp_socket, (struct sockaddr *) &addr, sizeof(addr));
 
         if (err == 0)
         {
@@ -157,7 +157,12 @@ void FWTP_ServerThread(void *argument)
             {
                 addrLen  = sizeof(struct sockaddr);
                 recv_len = recvfrom(
-                    fwtp_socket, FWTP_RX_Buffer, sizeof(FWTP_RX_Buffer), 0, (struct sockaddr *) &source_addr, &addrLen
+                    fwtp_socket,
+                    FWTP_RX_Buffer,
+                    sizeof(FWTP_RX_Buffer),
+                    0,
+                    (struct sockaddr *) &source_addr,
+                    &addrLen
                 );
 
                 /*If data is present*/
@@ -253,10 +258,13 @@ uint32_t FWTP_PacketParser(const uint8_t *p, uint16_t len)
         }
 
         /*Write data block*/
-        if (hdr->block_size ==
-            FWTP_BlockWrite(
-                hdr->file_id, hdr->file_size, hdr->block_offset, hdr->block_size, &p[sizeof(struct fwtp_hdr)]
-            ))
+        if (hdr->block_size == FWTP_BlockWrite(
+                                   hdr->file_id,
+                                   hdr->file_size,
+                                   hdr->block_offset,
+                                   hdr->block_size,
+                                   &p[sizeof(struct fwtp_hdr)]
+                               ))
         {
             /*OK*/
         }
@@ -293,7 +301,7 @@ FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t l
     }
 
     /* TODO write routine*/
-    PTRACE("Block received; File ID: %"PRIu8"; Offset: %"PRIu32"; Size: %"PRIu16";\r\n", file_id, offset, len);
+    PTRACE("Block received; File ID: %" PRIu8 "; Offset: %" PRIu32 "; Size: %" PRIu16 ";\r\n", file_id, offset, len);
 
     (void) ttl_fsize;
     (void) p;
@@ -315,7 +323,7 @@ __attribute__((weak)) uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsiz
         return FWTP_ERR_SUBSYSTEM;
     }
 
-    PTRACE("File start command received; File ID: %"PRIu8"; Size: %"PRIu32"\r\n", file_id, ttl_fsize);
+    PTRACE("File start command received; File ID: %" PRIu8 "; Size: %" PRIu32 "\r\n", file_id, ttl_fsize);
 
     return FWTP_ERR_OK;
 }
@@ -350,9 +358,9 @@ uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src)
 
     /* set up address to connect to */
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family         = AF_INET;
-    addr.sin_port           = htons(FWTP_CLIENT_PORT);
-    addr.sin_addr.s_addr    = src->sin_addr.s_addr;
+    addr.sin_family      = AF_INET;
+    addr.sin_port        = htons(FWTP_CLIENT_PORT);
+    addr.sin_addr.s_addr = src->sin_addr.s_addr;
 
     struct fwtp_hdr *tx_hdr = (struct fwtp_hdr *) FWTP_TX_Buffer;
 
@@ -368,7 +376,12 @@ uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src)
 
     /* Send to client*/
     if (sendto(
-            sock, FWTP_TX_Buffer, sizeof(struct fwtp_hdr) + 2, 0, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)
+            sock,
+            FWTP_TX_Buffer,
+            sizeof(struct fwtp_hdr) + 2,
+            0,
+            (struct sockaddr *) &addr,
+            sizeof(struct sockaddr_in)
         ) <= 0)
     {
         PTRACE_ERR("Acknowledge sending error: socket %i\r\n", sock);
