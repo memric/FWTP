@@ -4,8 +4,8 @@ import sys
 from argparse import ArgumentParser
 from fwtp import FWTP
 from rich.progress import track
-from time import sleep
 from rich.console import Console
+from time import sleep
 
 
 def main(argv=None):
@@ -25,7 +25,14 @@ def main(argv=None):
         parser.add_argument(
             "-s", "--size", dest="block_size", default=256, help="Block size"
         )
-        parser.add_argument('-t', '--timeout', dest='timeout', type=int, default=8, help='Waiting timeout pause.')
+        parser.add_argument(
+            "-t",
+            "--timeout",
+            dest="timeout",
+            type=int,
+            default=8,
+            help="Waiting timeout pause.",
+        )
         parser.add_argument("--version", action="version", version="0.0.1")
 
         # Process arguments

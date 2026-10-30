@@ -4,11 +4,11 @@
  * FirmWare Transfer Protocol
  *
  *  Created on: Oct 8, 2020
- *  Author: Valeriy Chudnikov
  */
 
 #include "fwtp.h"
 #include <string.h>
+#include <inttypes.h>
 #if defined(__linux__) || (__APPLE__)
 #include <netinet/in.h>
 #include <pthread.h>
@@ -81,7 +81,7 @@ uint32_t FWTP_Init(void)
     }
 
 #if defined(__linux__) || (__APPLE__)
-    pthread_create(&hFWTP, NULL, FWTPServerThread, NULL);
+    pthread_create(&hFWTP, NULL, FWTP_ServerThread, NULL);
     if (pthread_join(hFWTP, NULL))
     {
         return 1;
@@ -293,7 +293,7 @@ FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t l
     }
 
     /* TODO write routine*/
-    PTRACE("Block received; File ID: %u; Offset: %lu; Size: %hu;\r\n", file_id, offset, len);
+    PTRACE("Block received; File ID: %"PRIu8"; Offset: %"PRIu32"; Size: %"PRIu16";\r\n", file_id, offset, len);
 
     (void) ttl_fsize;
     (void) p;
@@ -315,7 +315,7 @@ __attribute__((weak)) uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsiz
         return FWTP_ERR_SUBSYSTEM;
     }
 
-    PTRACE("File start command received; File ID: %u; Size: %lu\r\n", file_id, ttl_fsize);
+    PTRACE("File start command received; File ID: %"PRIu8"; Size: %"PRIu32"\r\n", file_id, ttl_fsize);
 
     return FWTP_ERR_OK;
 }

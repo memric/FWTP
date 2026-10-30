@@ -2,7 +2,6 @@
  * fwtp.h
  *
  *  Created on: Oct 8, 2020
- *  Author: Valeriy Chudnikov
  */
 
 #ifndef PLATFORM_SUPPORT_FWTP_H_
