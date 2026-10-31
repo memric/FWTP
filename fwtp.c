@@ -1,9 +1,6 @@
-/*
- * fwtp.c
- *
- * FirmWare Transfer Protocol
- *
- *  Created on: Oct 8, 2020
+/**
+ * @file fwtp.c
+ * @brief FirmWare Transfer Protocol (FWTP) UDP server implementation.
  */
 
 #include "fwtp.h"
@@ -70,57 +67,69 @@ uint32_t FWTP_PacketParser(const uint8_t *p, uint16_t len);
 uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src);
 
 /**
- * @brief   FWTP Initialization
- * @return  Error code
+ * @brief FWTP initialization. Starts the UDP server thread.
+ * @return FWTP_ERR_OK on success. FWTP_ERR_SYS on thread creating error.
  */
 uint32_t FWTP_Init(void)
 {
     if (hFWTP != NULL)
     {
-        return 1;
+        return FWTP_ERR_SYS;
     }
 
 #if defined(__linux__) || (__APPLE__)
-    pthread_create(&hFWTP, NULL, FWTP_ServerThread, NULL);
-    if (pthread_join(hFWTP, NULL))
+    if (pthread_create(&hFWTP, NULL, FWTP_ServerThread, NULL) != 0)
     {
-        return 1;
+        return FWTP_ERR_SYS;
     }
+
+    pthread_detach(hFWTP);
 #elif defined(ESP_PLATFORM) || _FREERTOS_
-    xTaskCreate(FWTP_ServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP);
+    if (xTaskCreate(FWTP_ServerThread, "FWTP Thread", FWTP_THREAD_STACK, NULL, FWTP_THREAD_PRIO, &hFWTP) != pdPASS)
+    {
+        hFWTP = NULL;
+        return FWTP_ERR_SYS;
+    }
 #endif
 
     return FWTP_ERR_OK;
 }
 
 /**
- * @brief FWTP Deinitialization
- *
- * @return uint32_t Error code
+ * @brief FWTP deinitialization. Stops the server thread and closes the socket.
+ * @return FWTP_ERR_OK on success.
  */
 uint32_t FWTP_Deinit(void)
 {
 #if defined(__linux__) || (__APPLE__)
-    pthread_cancel(hFWTP);
+    if (fwtp_socket != -1)
+    {
+        /* shutdown() unblocks a thread stuck in recvfrom(); close() alone does not. */
+        shutdown(fwtp_socket, SHUT_RDWR);
+        close(fwtp_socket);
+        fwtp_socket = -1;
+    }
 #elif defined(ESP_PLATFORM) || _FREERTOS_
     if (hFWTP != NULL)
     {
         vTaskDelete(hFWTP);
+        hFWTP = NULL;
     }
-#endif
-
+    
     if (fwtp_socket != -1)
     {
         close(fwtp_socket);
         fwtp_socket = -1;
     }
+#endif
 
     return FWTP_ERR_OK;
 }
 
 /**
- * @brief   Main FWTP thread
- * @param   argument
+ * @brief Main FWTP server thread. Creates a UDP socket, binds it to
+ *        FWTP_SERVER_PORT and dispatches incoming packets.
+ * @param[in] argument Unused thread argument.
  */
 #if defined(__linux__) || (__APPLE__)
 void *FWTP_ServerThread(void *argument)
@@ -128,7 +137,8 @@ void *FWTP_ServerThread(void *argument)
 void FWTP_ServerThread(void *argument)
 #endif
 {
-    int32_t err, recv_len;
+    int32_t err;
+    ssize_t recv_len;
     struct sockaddr_in source_addr;
     socklen_t addrLen;
 
@@ -155,7 +165,7 @@ void FWTP_ServerThread(void *argument)
         {
             while (1)
             {
-                addrLen  = sizeof(struct sockaddr);
+                addrLen  = sizeof(source_addr);
                 recv_len = recvfrom(
                     fwtp_socket,
                     FWTP_RX_Buffer,
@@ -165,14 +175,14 @@ void FWTP_ServerThread(void *argument)
                     &addrLen
                 );
 
-                /*If data is present*/
+                /* If data is present, validate, ACK, then run post-ACK work. */
                 if (recv_len > 0)
                 {
-                    if (FWTP_PacketParser(FWTP_RX_Buffer, recv_len) == FWTP_ERR_OK)
+                    if (FWTP_PacketParser(FWTP_RX_Buffer, (uint16_t) recv_len) == FWTP_ERR_OK)
                     {
                         FWTP_AckSend((struct fwtp_hdr *) FWTP_RX_Buffer, fwtp_socket, &source_addr);
 
-                        /*To do after acknowledge*/
+                        /* To do after acknowledge */
                         FWTP_PendingOperation((struct fwtp_hdr *) FWTP_RX_Buffer);
                     }
                     else
@@ -184,8 +194,11 @@ void FWTP_ServerThread(void *argument)
                 }
             }
 
-            close(fwtp_socket);
-            fwtp_socket = -1;
+            if (fwtp_socket != -1)
+            {
+                close(fwtp_socket);
+                fwtp_socket = -1;
+            }
         }
         else
         {
@@ -205,24 +218,32 @@ void FWTP_ServerThread(void *argument)
 }
 
 /**
- * @brief       Packet data parser
- * @param p     Pointer to data
- * @param len   Data length
+ * @brief Validates an incoming FWTP packet: checks length, CRC-16, version
+ *        and dispatches START/STOP/WRITE commands.
+ * @note Wire format is little-endian.
+ * @param[in] p   Pointer to received datagram.
+ * @param[in] len Datagram length in bytes.
+ * @return FWTP_ERR_OK on success, otherwise one of FWTP_ERR_* codes.
  */
 uint32_t FWTP_PacketParser(const uint8_t *p, uint16_t len)
 {
-    if (len < sizeof(struct fwtp_hdr) + 2)
+    if (p == NULL)
+    {
+        return FWTP_ERR_SIZE;
+    }
+
+    if ((len < sizeof(struct fwtp_hdr) + 2) || (len > sizeof(FWTP_RX_Buffer)))
     {
         PTRACE_ERR("Invalid packet length\r\n");
         return FWTP_ERR_SIZE;
     }
 
-    /*Calculate CRC*/
+    /* Calculate CRC */
     uint16_t block_crc16 = *((uint16_t *) &p[len - 2]);
     uint16_t calc_crc16  = FWTP_CRC(p, len - 2);
     if (block_crc16 != calc_crc16)
     {
-        PTRACE_ERR("Invalid CRC: expected %d, obtained %d\r\n", calc_crc16, block_crc16);
+        PTRACE_ERR("Invalid CRC: expected %u, obtained %u\r\n", calc_crc16, block_crc16);
         return FWTP_ERR_CRC;
     }
 
@@ -250,25 +271,20 @@ uint32_t FWTP_PacketParser(const uint8_t *p, uint16_t len)
     }
     else if (FWTP_HDR_GET_CMD(hdr) == FWTP_CMD_WR)
     {
-        /*Check block size*/
-        if (hdr->block_size != (len - 2 - sizeof(struct fwtp_hdr)))
+        /* Check block size */
+        if (hdr->block_size != (len - 2 - sizeof(struct fwtp_hdr)) || hdr->block_size == 0)
         {
             PTRACE_ERR("Incorrect block size\r\n");
             return FWTP_ERR_SIZE;
         }
 
-        /*Write data block*/
-        if (hdr->block_size == FWTP_BlockWrite(
+        /* Write data block */
+        if (hdr->block_size != FWTP_BlockWrite(
                                    hdr->file_id,
                                    hdr->file_size,
                                    hdr->block_offset,
                                    hdr->block_size,
-                                   &p[sizeof(struct fwtp_hdr)]
-                               ))
-        {
-            /*OK*/
-        }
-        else
+                                   &p[sizeof(struct fwtp_hdr)]))
         {
             PTRACE_ERR("Block writing error\r\n");
             return FWTP_ERR_FS;
@@ -347,13 +363,19 @@ __attribute__((weak)) uint32_t FWTP_FileStop(uint8_t file_id)
 }
 
 /**
- * @brief       Sends acknowledge response
- * @param hdr   Pointer to received packet header
- * @param sock  Socket
- * @param src   Client address
+ * @brief Sends an ACK response for a received packet header.
+ * @param[in] hdr  Pointer to the received packet header (copied into ACK).
+ * @param[in] sock UDP socket to send from.
+ * @param[in] src  Source address of the request; reply goes to its IP on FWTP_CLIENT_PORT.
+ * @return FWTP_ERR_OK on success, FWTP_ERR_NET on send failure.
  */
 uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src)
 {
+    if ((hdr == NULL) || (src == NULL) || (sock < 0))
+    {
+        return FWTP_ERR_NET;
+    }
+
     struct sockaddr_in addr;
 
     /* set up address to connect to */
@@ -392,8 +414,9 @@ uint32_t FWTP_AckSend(struct fwtp_hdr *hdr, int sock, struct sockaddr_in *src)
 }
 
 /**
- * @brief       Invoked after acknowledge sending
- * @param hdr   Pointer to received packet header
+ * @brief Invoked after the ACK has been sent. Default implementation does nothing.
+ *        Override to trigger post-packet work (e.g. reboot after STOP).
+ * @param[in] hdr Pointer to the received packet header.
  */
 __attribute__((weak)) void FWTP_PendingOperation(struct fwtp_hdr *hdr)
 {
@@ -401,10 +424,10 @@ __attribute__((weak)) void FWTP_PendingOperation(struct fwtp_hdr *hdr)
 }
 
 /**
- * @brief       CRC calculation
- * @param pdata Pointer to data
- * @param len   Data size
- * @return      CRC value
+ * @brief Calculates CRC-16/CCITT (poly 0x1021, init 0xFFFF) over a buffer.
+ * @param[in] pdata Pointer to data.
+ * @param[in] len   Number of bytes to process.
+ * @return Computed CRC-16 value (host byte order; wire order is little-endian).
  */
 uint16_t FWTP_CRC(const uint8_t *pdata, uint16_t len)
 {

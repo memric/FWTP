@@ -4,6 +4,8 @@ Lightweight UDP-based protocol for transferring firmware images and data files t
 
 FWTP is intentionally very simple and unsecured: data is sent as raw, uncompressed, unencrypted blocks in plain UDP datagrams. There is no authentication, no encryption, and no protection against eavesdropping, spoofing, or replay attacks — use it only on trusted local networks or behind an additional secure transport.
 
+*Note: little endian is supported.*
+
 The repository contains two parts:
 
 - **C server library** (`fwtp.c` / `fwtp.h`) — runs on the target device, receives files over UDP.
@@ -107,7 +109,7 @@ Header helpers: `FWTP_HDR_GET_VER` / `FWTP_HDR_GET_CMD` / `FWTP_HDR_GET_ATTR`, `
 
 ## Python Client
 
-Install dependencies ([rich](https://github.com/textualize/rich) is used for console status bar):
+Install dependencies ([rich](https://github.com/textualize/rich) is used for console status bar and [Numpy](https://numpy.org) for CRC calculation):
 
 ```bash
 pip install -r pyFWTP/requirements.txt

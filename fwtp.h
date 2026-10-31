@@ -1,7 +1,18 @@
-/*
- * fwtp.h
+/**
+ * @file fwtp.h
+ * @brief FirmWare Transfer Protocol (FWTP).
+ * @details UDP-based protocol for transferring firmware images in blocks.
+ *          Byte order for multi-byte fields and CRC is little-endian.
  *
- *  Created on: Oct 8, 2020
+ * Packet structure:
+ * | 1 byte: Version (2 bits) + Command (3 bits) + Attributes (3 bits, reserved) |
+ * | 1 byte: File ID |
+ * | 2 bytes: Packet ID (reserved) |
+ * | 4 bytes: Total file size (LE) |
+ * | 4 bytes: Block offset (LE) |
+ * | 2 bytes: Block size (LE) |
+ * | N bytes: Data |
+ * | 2 bytes: CRC-16/CCITT (poly 0x1021, init 0xFFFF) over header + data (LE) |
  */
 
 #ifndef PLATFORM_SUPPORT_FWTP_H_
@@ -42,12 +53,12 @@ extern "C"
 
 #define FWTP_ATTR_NONE          0 /*No attributes*/
 
-#define FWTP_HDR_GET_VER(a)     ((a)->hdr >> 6)         /*Get version from header*/
+#define FWTP_HDR_GET_VER(a)     (((a)->hdr >> 6) & 0x3) /*Get version from header*/
 #define FWTP_HDR_GET_CMD(a)     (((a)->hdr >> 3) & 0x7) /*Get command from header*/
 #define FWTP_HDR_GET_ATTR(a)    ((a)->hdr & 0x7)        /*Get attributes from header*/
-#define FWTP_HDR_SET_VER(a, c)  ((a)->hdr |= (c) << 6)
-#define FWTP_HDR_SET_CMD(a, c)  ((a)->hdr |= (c) << 3)
-#define FWTP_HDR_SET_ATTR(a, c) ((a)->hdr |= (c))
+#define FWTP_HDR_SET_VER(a, c)  ((a)->hdr = ((a)->hdr & ~(0x3 << 6)) | (((c) & 0x3) << 6))
+#define FWTP_HDR_SET_CMD(a, c)  ((a)->hdr = ((a)->hdr & ~(0x7 << 3)) | (((c) & 0x7) << 3))
+#define FWTP_HDR_SET_ATTR(a, c) ((a)->hdr = ((a)->hdr & ~(0x7)) | ((c) & 0x7))
 
 #define FWTP_HDR_SIZE           sizeof(struct fwtp_hdr)
 
@@ -57,6 +68,7 @@ extern "C"
 #define FWTP_ERR_VER            0x03
 #define FWTP_ERR_CMD            0x04
 #define FWTP_ERR_FILE_ID        0x05
+#define FWTP_ERR_SYS            0x06
 #define FWTP_ERR_FS             0x10
 #define FWTP_ERR_NET            0x11
 #define FWTP_ERR_SUBSYSTEM      0x20
@@ -94,9 +106,38 @@ struct fwtp_hdr
 uint32_t FWTP_Init(void);
 uint32_t FWTP_Deinit(void);
 uint16_t FWTP_CRC(const uint8_t *pdata, uint16_t len);
+
+/**
+ * @brief Writes a file data block. Provide your own implementation to
+ *        override the weak default (which accepts FWTP_MAINSYSTEM_FILE_ID only).
+ * @param[in] file_id   File ID.
+ * @param[in] ttl_fsize Total file size in bytes.
+ * @param[in] offset    Block offset in bytes.
+ * @param[in] len       Block size in bytes.
+ * @param[in] p         Pointer to block data.
+ * @return Number of bytes written; 0 on error.
+ */
 uint32_t FWTP_BlockWrite(uint8_t file_id, uint32_t ttl_fsize, uint32_t offset, uint16_t len, const uint8_t *p);
+
+/**
+ * @brief Invoked on START command. Override the weak default as needed.
+ * @param[in] file_id   File ID.
+ * @param[in] ttl_fsize Total file size in bytes.
+ * @return FWTP_ERR_OK on success, otherwise an FWTP_ERR_* code.
+ */
 uint32_t FWTP_FileStart(uint8_t file_id, uint32_t ttl_fsize);
+
+/**
+ * @brief Invoked on STOP command. Override the weak default as needed.
+ * @param[in] file_id File ID.
+ * @return FWTP_ERR_OK on success, otherwise an FWTP_ERR_* code.
+ */
 uint32_t FWTP_FileStop(uint8_t file_id);
+
+/**
+ * @brief Invoked after the ACK is sent. Override the weak default as needed.
+ * @param[in] hdr Pointer to the received packet header.
+ */
 void FWTP_PendingOperation(struct fwtp_hdr *hdr);
 
 #ifdef __cplusplus
